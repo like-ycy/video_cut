@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import BottomBar from './components/BottomBar'
+import DropOverlay from './components/DropOverlay'
 import EmptyState from './components/EmptyState'
 import ExportOverlay from './components/ExportOverlay'
 import Player from './components/Player'
@@ -68,10 +69,17 @@ interface ExportFailedEvent extends ExportFailure {
   seq: number
 }
 
+/** 判断拖拽内容是否为文件，避免选中文字等场景误触发提示。 */
+function hasFiles(e: DragEvent): boolean {
+  const types = e.dataTransfer?.types
+  return types ? Array.from(types).includes('Files') : false
+}
+
 export default function App() {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const openSeqRef = useRef(0)
   const exportSeqRef = useRef(0)
+  const dragDepth = useRef(0)
 
   const [media, setMedia] = useState<MediaInfo | null>(null)
   const [mediaURL, setMediaURL] = useState('')
@@ -168,8 +176,9 @@ export default function App() {
       setExportStatus('failed')
     })
 
-    // 拖放文件（Wails 提供绝对路径）
+    // 拖放文件（Wails 提供绝对路径）。无论当前是否有视频在预览都可用。
     const offDrop = EventsOn('wails:file-drop', (_x: number, _y: number, paths: string[]) => {
+      dragDepth.current = 0
       setDropActive(false)
       if (!paths || paths.length === 0) return
       if (paths.length > 1) {
@@ -179,12 +188,30 @@ export default function App() {
       OpenPath(paths[0]).catch(() => undefined)
     })
 
-    const onDragOver = () => setDropActive(true)
-    const onDragLeave = (e: DragEvent) => {
-      if (e.relatedTarget === null) setDropActive(false)
+    // DOM 事件只负责视觉反馈与阻止浏览器默认行为，真实路径由 wails:file-drop 提供
+    const onDragEnter = (e: DragEvent) => {
+      if (!hasFiles(e)) return
+      dragDepth.current += 1
+      setDropActive(true)
     }
+    const onDragOver = (e: DragEvent) => {
+      if (!hasFiles(e)) return
+      e.preventDefault() // 阻止 WebView 直接打开该文件
+      setDropActive(true)
+    }
+    const onDragLeave = () => {
+      dragDepth.current = Math.max(0, dragDepth.current - 1)
+      if (dragDepth.current === 0) setDropActive(false)
+    }
+    const onDrop = () => {
+      dragDepth.current = 0
+      setDropActive(false)
+    }
+    window.addEventListener('dragenter', onDragEnter)
     window.addEventListener('dragover', onDragOver)
     window.addEventListener('dragleave', onDragLeave)
+    window.addEventListener('drop', onDrop)
+    window.addEventListener('dragend', onDrop)
 
     return () => {
       offOpened?.()
@@ -197,8 +224,11 @@ export default function App() {
       offDone?.()
       offFail?.()
       offDrop?.()
+      window.removeEventListener('dragenter', onDragEnter)
       window.removeEventListener('dragover', onDragOver)
       window.removeEventListener('dragleave', onDragLeave)
+      window.removeEventListener('drop', onDrop)
+      window.removeEventListener('dragend', onDrop)
     }
   }, [])
 
@@ -358,6 +388,8 @@ export default function App() {
         }}
         onRetryExact={handleRetryExact}
       />
+
+      <DropOverlay active={dropActive} replacing={Boolean(media)} />
     </div>
   )
 }

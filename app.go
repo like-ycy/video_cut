@@ -190,6 +190,7 @@ func (a *App) OpenPath(path string) error {
 	// 切换视频前等待旧任务退出，避免结果或缓存回写到新视频。
 	a.cancelExportAndWait()
 	a.cancelPreviewTasks()
+	a.clearProxyCache()
 	a.media.SetOriginal(path)
 	runtime.EventsEmit(a.ctx, EventVideoOpened, map[string]interface{}{"seq": seq, "info": info})
 	a.startThumbnails(seq, path, info.Duration)
@@ -356,6 +357,15 @@ func (a *App) cancelProxyAndWait() {
 	if done != nil {
 		<-done
 	}
+}
+
+// clearProxyCache 删除上一个视频遗留的预览代理。
+// 必须在探测成功之后调用：打开失败时要保留当前视频继续播放。
+func (a *App) clearProxyCache() {
+	if a.tmpRoot == "" {
+		return
+	}
+	_ = os.RemoveAll(filepath.Join(a.tmpRoot, "proxy"))
 }
 
 // CurrentMediaURL 返回当前视频的完整访问地址，带序号避免浏览器缓存旧内容。
