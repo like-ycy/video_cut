@@ -1,0 +1,13 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "videocut",
+  "outputfilename": "videocut",
+  "frontend:install": "echo skip-npm-install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "node node_modules/vite/bin/vite.js",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "",
+    "email": ""
+  }
+}

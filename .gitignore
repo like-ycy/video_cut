@@ -1,0 +1,54 @@
+# ---------- 系统文件 ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- Go ----------
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.txt
+coverage.html
+vendor/
+
+# ---------- Wails 构建产物 ----------
+build/bin/
+frontend/package.json.md5
+
+# ---------- Node / 前端 ----------
+node_modules/
+frontend/dist/
+frontend/.vite/
+dist/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---------- 编辑器 / IDE ----------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ---------- AI 工具目录 ----------
+.omo/
+.serena/
+.workbuddy/
+.codebuddy/
+
+# ---------- 日志 / 临时文件 ----------
+*.log
+*.tmp
+*.temp
+
+# ---------- 项目特定 ----------
+samples/
+demo/
+tests/
