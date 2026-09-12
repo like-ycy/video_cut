@@ -5,6 +5,8 @@ import {video} from '../models';
 
 export function CancelExport():Promise<void>;
 
+export function ClearMedia():Promise<void>;
+
 export function CurrentMediaURL():Promise<string>;
 
 export function ExportVideo(arg1:string,arg2:number,arg3:number):Promise<string>;

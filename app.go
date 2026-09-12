@@ -368,6 +368,30 @@ func (a *App) clearProxyCache() {
 	_ = os.RemoveAll(filepath.Join(a.tmpRoot, "proxy"))
 }
 
+// ClearMedia 关闭当前视频并释放预览相关任务与缓存。
+func (a *App) ClearMedia() {
+	a.mu.Lock()
+	a.openReqSeq++
+	openCancel := a.openCancel
+	a.openCancel = nil
+	a.mu.Unlock()
+	if openCancel != nil {
+		openCancel()
+	}
+
+	a.jobsMu.Lock()
+	defer a.jobsMu.Unlock()
+
+	a.thumbs.Clear()
+	a.cancelProxyAndWait()
+	a.clearProxyCache()
+	a.media.Clear()
+	a.mu.Lock()
+	a.info = nil
+	a.openSeq++
+	a.mu.Unlock()
+}
+
 // CurrentMediaURL 返回当前视频的完整访问地址，带序号避免浏览器缓存旧内容。
 func (a *App) CurrentMediaURL() string {
 	a.mu.Lock()

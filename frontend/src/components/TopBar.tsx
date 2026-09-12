@@ -6,11 +6,12 @@ interface Props {
   mode: TrimMode
   locked: boolean
   onOpen: () => void
+  onClear: () => void
   onModeChange: (mode: TrimMode) => void
 }
 
 /** 顶部工具栏：打开视频、当前文件名、模式切换。 */
-export default function TopBar({ media, mode, locked, onOpen, onModeChange }: Props) {
+export default function TopBar({ media, mode, locked, onOpen, onClear, onModeChange }: Props) {
   return (
     <header className="h-14 shrink-0 border-b border-app-border bg-app-surface px-4 flex items-center gap-3">
       <button
@@ -23,6 +24,17 @@ export default function TopBar({ media, mode, locked, onOpen, onModeChange }: Pr
       >
         <FolderIcon className="w-4 h-4 text-app-muted" />
         打开视频
+      </button>
+
+      <button
+        type="button"
+        onClick={onClear}
+        disabled={!media || locked}
+        className="rounded-md border border-app-border bg-app-surface px-3 py-1.5 text-sm font-medium
+                   text-app-text hover:bg-app-subtle transition-colors
+                   disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        清空
       </button>
 
       <div className="min-w-0 flex-1 flex items-baseline gap-2">

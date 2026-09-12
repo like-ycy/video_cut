@@ -22,6 +22,13 @@ export default function Player({ src, duration, preparing, videoRef, onTimeChang
     setPlaying(false)
     setCurrent(0)
     setFailed(false)
+
+    const video = videoRef.current
+    if (!src && video) {
+      video.pause()
+      video.removeAttribute('src')
+      video.load()
+    }
   }, [src])
 
   const toggle = () => {

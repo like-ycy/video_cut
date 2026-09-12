@@ -18,6 +18,7 @@ import type {
 } from './types'
 import {
   CancelExport,
+  ClearMedia,
   CurrentMediaURL,
   ExportVideo,
   OpenPath,
@@ -262,6 +263,30 @@ export default function App() {
     OpenVideoDialog().catch((e) => setOpenError(String(e)))
   }, [])
 
+  const handleClear = useCallback(async () => {
+    videoRef.current?.pause()
+    videoRef.current?.removeAttribute('src')
+    videoRef.current?.load()
+    openSeqRef.current += 1
+    exportSeqRef.current = 0
+    setMedia(null)
+    setMediaURL('')
+    setPreparing(false)
+    setStart(0)
+    setEnd(0)
+    setPlayhead(0)
+    setThumbs([])
+    setThumbLoading(false)
+    setPercent(0)
+    setEta(0)
+    setResult(null)
+    setFailure(null)
+    setExportStatus('idle')
+    setFormatError({ start: '', end: '' })
+    setOpenError('')
+    await ClearMedia().catch((e) => setOpenError(String(e)))
+  }, [])
+
   const handleRangeChange = useCallback((s: number, e: number) => {
     setStart(s)
     setEnd(e)
@@ -304,7 +329,14 @@ export default function App() {
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden bg-app-bg text-app-text">
-      <TopBar media={media} mode={mode} locked={locked} onOpen={handleOpen} onModeChange={setMode} />
+      <TopBar
+        media={media}
+        mode={mode}
+        locked={locked}
+        onOpen={handleOpen}
+        onClear={handleClear}
+        onModeChange={setMode}
+      />
 
       {openError && (
         <div className="flex items-center gap-2 border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">
@@ -388,6 +420,7 @@ export default function App() {
         failure={failure}
         onCancel={() => CancelExport()}
         onClose={() => setExportStatus('idle')}
+        onComplete={handleClear}
         onReveal={(path) => {
           RevealInFolder(path).catch(() => undefined)
         }}

@@ -105,6 +105,7 @@ func (s *Server) Clear() {
 	defer s.mu.Unlock()
 	s.current = ""
 	s.original = ""
+	s.revision++
 }
 
 // ServeHTTP 处理 /media/ 开头的请求，其余返回 404。

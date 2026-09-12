@@ -12,6 +12,7 @@ interface Props {
   failure: ExportFailure | null
   onCancel: () => void
   onClose: () => void
+  onComplete: () => void
   onReveal: (path: string) => void
   onRetryExact: () => void
 }
@@ -26,6 +27,7 @@ export default function ExportOverlay({
   failure,
   onCancel,
   onClose,
+  onComplete,
   onReveal,
   onRetryExact,
 }: Props) {
@@ -40,7 +42,7 @@ export default function ExportOverlay({
           <Running mode={mode} percent={percent} eta={eta} onCancel={onCancel} />
         )}
         {status === 'success' && result && (
-          <Success result={result} onClose={onClose} onReveal={onReveal} />
+          <Success result={result} onClose={onComplete} onReveal={onReveal} />
         )}
         {status === 'failed' && failure && (
           <Failed

@@ -6,6 +6,10 @@ export function CancelExport() {
   return window['go']['main']['App']['CancelExport']();
 }
 
+export function ClearMedia() {
+  return window['go']['main']['App']['ClearMedia']();
+}
+
 export function CurrentMediaURL() {
   return window['go']['main']['App']['CurrentMediaURL']();
 }

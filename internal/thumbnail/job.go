@@ -85,6 +85,12 @@ func (m *Manager) Cancel() {
 	}
 }
 
+// Clear 取消任务并删除已生成的缩略图。
+func (m *Manager) Clear() {
+	m.Cancel()
+	m.clearDir()
+}
+
 // generate 并发生成所有缩略图，按顺序返回。
 func (m *Manager) generate(ctx context.Context, src string, duration float64, count int,
 	onProgress func(done, total int)) ([]Item, error) {
