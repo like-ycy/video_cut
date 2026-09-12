@@ -15,7 +15,7 @@ type Process struct {
 
 // Start 启动一个可从 stdout 读取进度的进程（用于 ffmpeg -progress pipe:1）。
 func Start(ctx context.Context, bin string, args []string) (*Process, io.ReadCloser, error) {
-	cmd := exec.CommandContext(ctx, bin, args...)
+	cmd := Command(ctx, bin, args...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, nil, err
@@ -41,7 +41,7 @@ func (p *Process) Wait(ctx context.Context) error {
 
 // Run 执行 ffmpeg / ffprobe 并等待结束，返回组合后的错误输出（用于技术详情）。
 func Run(ctx context.Context, bin string, args []string) error {
-	cmd := exec.CommandContext(ctx, bin, args...)
+	cmd := Command(ctx, bin, args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
@@ -51,6 +51,21 @@ func Run(ctx context.Context, bin string, args []string) error {
 		return &Error{Err: err, Output: stderr.String()}
 	}
 	return nil
+}
+
+// Output 执行 ffprobe 并返回其标准输出（用于读取关键帧、时长等信息）。
+func Output(ctx context.Context, bin string, args ...string) ([]byte, error) {
+	cmd := Command(ctx, bin, args...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		return nil, &Error{Err: err, Output: stderr.String()}
+	}
+	return out, nil
 }
 
 // Error 携带 FFmpeg 原始输出的错误类型。

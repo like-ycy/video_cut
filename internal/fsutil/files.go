@@ -75,15 +75,20 @@ func exists(path string) bool {
 // ErrTargetExists 表示发布时目标文件已由其他操作创建，原文件未被覆盖。
 var ErrTargetExists = errors.New("目标文件已存在")
 
-// CreateTemp 在目标同目录独占创建随机临时文件。
+// CreateTemp 在目标同目录独占创建随机临时文件，保留原扩展名。
 // 必须保留原扩展名：FFmpeg 依据扩展名推断封装格式，
 // 若使用 .partial 之类的后缀会报 "Error initializing the muxer"。
 // 放在同目录，保证最终改名是同分区原子操作。
 func CreateTemp(final string) (string, error) {
+	return CreateTempWithExt(final, filepath.Ext(final))
+}
+
+// CreateTempWithExt 同 CreateTemp，但可以指定扩展名。
+// 混合裁剪的中间片段固定用 .mp4：H.264 / HEVC + AAC 都能装进 MP4，
+// 统一容器与时间基准后拼接才不会错位。
+func CreateTempWithExt(final, ext string) (string, error) {
 	dir := filepath.Dir(final)
-	base := filepath.Base(final)
-	ext := filepath.Ext(base)
-	stem := strings.TrimSuffix(base, ext)
+	stem := strings.TrimSuffix(filepath.Base(final), filepath.Ext(final))
 
 	f, err := os.CreateTemp(dir, fmt.Sprintf(".%s.*%s", stem, ext))
 	if err != nil {
@@ -116,7 +121,9 @@ func Reveal(path string) error {
 	case "darwin":
 		cmd = exec.Command("open", "-R", path)
 	case "windows":
-		cmd = exec.Command("explorer", "/select,", filepath.ToSlash(path))
+		// /select, 必须与路径拼成同一个参数；路径必须是原生反斜杠，
+		// 正斜杠会被 explorer 当成命令行开关，导致只打开文件管理器而不选中文件。
+		cmd = exec.Command("explorer", "/select,"+filepath.FromSlash(path))
 	default:
 		cmd = exec.Command("xdg-open", filepath.Dir(path))
 	}

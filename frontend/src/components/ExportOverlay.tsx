@@ -77,7 +77,7 @@ function Running({
       {mode === 'fast' ? (
         <p className="mt-2 flex items-center gap-2 text-xs text-app-muted">
           <span className="h-3 w-3 animate-spin rounded-full border-2 border-brand-600 border-t-transparent" />
-          无损复制中，通常几秒内完成
+          复制中，通常很快完成
         </p>
       ) : (
         <>

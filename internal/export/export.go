@@ -33,6 +33,10 @@ type Request struct {
 	Start  float64 `json:"start"`
 	End    float64 `json:"end"`
 	Output string  `json:"output"`
+	// 源媒体的编码信息，用于判断极速模式能否走混合裁剪。
+	VideoCodec    string `json:"videoCodec"`
+	AudioCodec    string `json:"audioCodec"`
+	SubtitleCount int    `json:"subtitleCount"`
 }
 
 // Result 是导出成功后的结果。
@@ -84,7 +88,7 @@ func Run(ctx context.Context, req Request, onProgress func(Progress)) (*Result, 
 	var runErr error
 
 	if req.Mode == ModeFast {
-		runErr = runFast(ctx, paths.FFmpeg, req, tmp, duration, ext, &warnings)
+		runErr = runFast(ctx, *paths, req, tmp, duration, ext, &warnings)
 	} else {
 		runErr = runExact(ctx, paths.FFmpeg, req, tmp, duration, ext, &warnings, onProgress)
 	}
@@ -145,12 +149,26 @@ func Run(ctx context.Context, req Request, onProgress func(Progress)) (*Result, 
 	}, nil
 }
 
-// runFast 极速模式：流复制，不重编码，切点对齐附近关键帧。
-func runFast(ctx context.Context, bin string, req Request, out string, duration float64, ext string, warnings *[]string) error {
+// runFast 极速模式：默认流复制，不重编码。
+// 源为 H.264 / HEVC + AAC 时先尝试混合裁剪（见 runSmart）：纯复制必须从起点之前的关键帧
+// 开始，成片会多带一段内容，部分播放器（PotPlayer 硬解等）在这类文件上快进会卡在一帧；
+// 混合裁剪只重编码开头到下一个关键帧的一小段，成片首帧就是关键帧，兼容性等同重新编码。
+func runFast(ctx context.Context, paths ffmpeg.Paths, req Request, out string, duration float64, ext string, warnings *[]string) error {
+	if smartEligible(req) {
+		err := runSmart(ctx, paths, req, out, ext)
+		if err == nil {
+			return nil
+		}
+		if ctx.Err() != nil {
+			return err
+		}
+		// 混合裁剪不可用时，退回原来的纯复制
+	}
+
 	base := []string{"-y", "-ss", fmtTS(req.Start), "-i", req.Src, "-t", fmtTS(duration)}
 	common := []string{"-map_metadata", "0", "-map_chapters", "0"}
 
-	if ext == "mp4" || ext == "mov" || ext == "m4v" {
+	if needsFastStart(ext) {
 		common = append(common, "-movflags", "+faststart")
 	}
 
@@ -160,7 +178,7 @@ func runFast(ctx context.Context, bin string, req Request, out string, duration 
 	full = append(full, common...)
 	full = append(full, out)
 
-	if err := ffmpeg.Run(ctx, bin, full); err == nil {
+	if err := ffmpeg.Run(ctx, paths.FFmpeg, full); err == nil {
 		return nil
 	}
 
@@ -170,11 +188,170 @@ func runFast(ctx context.Context, bin string, req Request, out string, duration 
 	av = append(av, common...)
 	av = append(av, out)
 
-	if err := ffmpeg.Run(ctx, bin, av); err != nil {
+	if err := ffmpeg.Run(ctx, paths.FFmpeg, av); err != nil {
 		return err
 	}
 	*warnings = append(*warnings, "部分字幕或附加信息未能保留")
 	return nil
+}
+
+// 混合裁剪允许重编码的开头长度上限。超过说明关键帧间隔过大，退回纯复制。
+const maxSmartHeadSec = 30.0
+
+// 关键帧扫描窗口（秒）。只扫描起点之后的一小段，避免整片扫描。
+const keyframeScanWindow = 120.0
+
+// 混合裁剪中间片段的时间基准。两段必须用同一个基准，否则拼接时时间戳会被整体缩放。
+const smartTimescale = "90000"
+
+// runSmart 混合裁剪：重编码 [start, 下一个关键帧) 这一小段，其后原样复制，最后无损拼接。
+// 任何一步失败都返回错误，由调用方退回纯复制。
+func runSmart(ctx context.Context, paths ffmpeg.Paths, req Request, out string, ext string) error {
+	cut, err := firstKeyframeAfter(ctx, paths.FFprobe, req.Src, req.Start)
+	if err != nil {
+		return err
+	}
+	headDur := cut - req.Start
+	// 起点已经（几乎）落在关键帧上：纯复制本身就是干净的，无需重编码。
+	// 关键帧落在终点之后：整段比一个关键帧间隔还短，同样交给纯复制。
+	if headDur <= 0.02 || cut >= req.End-0.05 || headDur > maxSmartHeadSec {
+		return fmt.Errorf("不适合混合裁剪")
+	}
+
+	head, err := fsutil.CreateTempWithExt(req.Output, ".mp4")
+	if err != nil {
+		return err
+	}
+	body, err := fsutil.CreateTempWithExt(req.Output, ".mp4")
+	if err != nil {
+		fsutil.RemoveQuiet(head)
+		return err
+	}
+	list, err := fsutil.CreateTempWithExt(req.Output, ".txt")
+	if err != nil {
+		fsutil.RemoveQuiet(head)
+		fsutil.RemoveQuiet(body)
+		return err
+	}
+	defer func() {
+		fsutil.RemoveQuiet(head)
+		fsutil.RemoveQuiet(body)
+		fsutil.RemoveQuiet(list)
+	}()
+
+	// 开头：重编码。输入侧 -ss 会精确跳到起点，编码后第一帧是关键帧，时间戳从 0 开始。
+	headArgs := []string{
+		"-y", "-ss", fmtTS(req.Start), "-i", req.Src, "-t", fmtTS(headDur),
+		"-map", "0:v:0", "-map", "0:a?",
+	}
+	headArgs = append(headArgs, headVideoArgs(req.VideoCodec)...)
+	headArgs = append(headArgs, "-c:a", "aac", "-b:a", "192k", "-video_track_timescale", smartTimescale)
+	headArgs = append(headArgs, head)
+	if err := ffmpeg.Run(ctx, paths.FFmpeg, headArgs); err != nil {
+		return err
+	}
+
+	// 其余：起点正好是关键帧，复制后时间戳自然从 0 开始，不会带入多余片段。
+	// 这里不能用 -avoid_negative_ts：它会让 FFmpeg 把关键帧之前的画面一并保留，
+	// 成片就会多出一段、与开头重编码的部分重复。
+	bodyArgs := []string{
+		"-y", "-ss", fmtTS(cut), "-i", req.Src, "-t", fmtTS(req.End - cut),
+		"-map", "0:v:0", "-map", "0:a?",
+		"-c", "copy", "-video_track_timescale", smartTimescale,
+	}
+	bodyArgs = append(bodyArgs, body)
+	if err := ffmpeg.Run(ctx, paths.FFmpeg, bodyArgs); err != nil {
+		return err
+	}
+
+	if err := writeConcatList(list, []string{head, body}); err != nil {
+		return err
+	}
+	concatArgs := []string{"-y", "-f", "concat", "-safe", "0", "-i", list, "-map", "0", "-c", "copy"}
+	if needsFastStart(ext) {
+		concatArgs = append(concatArgs, "-movflags", "+faststart")
+	}
+	concatArgs = append(concatArgs, out)
+	return ffmpeg.Run(ctx, paths.FFmpeg, concatArgs)
+}
+
+// smartEligible 判断能否使用混合裁剪。只支持 H.264 / HEVC 视频与 AAC（或无）音轨：
+// 开头重编码出来的流必须和后面复制的流完全一致才能无损拼接，其它编码一律退回纯复制。
+// 有字幕轨时也不走混合方式，避免字幕被静默丢弃。
+func smartEligible(req Request) bool {
+	if req.SubtitleCount > 0 {
+		return false
+	}
+	switch strings.ToLower(req.VideoCodec) {
+	case "h264", "avc1", "hevc", "hvc1", "hev1":
+	default:
+		return false
+	}
+	if req.AudioCodec == "" {
+		return true
+	}
+	return strings.ToLower(req.AudioCodec) == "aac"
+}
+
+// headVideoArgs 返回开头片段的编码参数，编码器要与源编码对应。
+func headVideoArgs(codec string) []string {
+	switch strings.ToLower(codec) {
+	case "hevc", "hvc1", "hev1":
+		return []string{"-c:v", "libx265", "-preset", "veryfast", "-crf", "20"}
+	default:
+		return []string{"-c:v", "libx264", "-preset", "veryfast", "-crf", "18"}
+	}
+}
+
+// firstKeyframeAfter 返回视频流中第一个不早于 t 的关键帧时间。
+func firstKeyframeAfter(ctx context.Context, bin, src string, t float64) (float64, error) {
+	if t < 0 {
+		t = 0
+	}
+	args := []string{
+		"-v", "error",
+		"-select_streams", "v:0",
+		"-skip_frame", "nokey",
+		"-show_entries", "frame=pts_time",
+		"-of", "csv=p=0",
+		"-read_intervals", fmt.Sprintf("%.3f%%+%.0f", t, keyframeScanWindow),
+		src,
+	}
+	out, err := ffmpeg.Output(ctx, bin, args...)
+	if err != nil {
+		return 0, err
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(line), ","))
+		if line == "" || line == "N/A" {
+			continue
+		}
+		v, err := strconv.ParseFloat(line, 64)
+		if err != nil {
+			continue
+		}
+		if v >= t-0.02 {
+			return v, nil
+		}
+	}
+	return 0, fmt.Errorf("起点之后 %.0f 秒内未找到关键帧", keyframeScanWindow)
+}
+
+// writeConcatList 写 ffmpeg concat 列表文件。
+// 路径统一写成正斜杠：Windows 的反斜杠会被 concat 解复用器当成转义字符。
+func writeConcatList(path string, files []string) error {
+	var b strings.Builder
+	for _, f := range files {
+		b.WriteString("file '")
+		b.WriteString(strings.ReplaceAll(filepath.ToSlash(f), "'", `'\''`))
+		b.WriteString("'\n")
+	}
+	return os.WriteFile(path, []byte(b.String()), 0o600)
+}
+
+// needsFastStart 判断该容器是否需要把索引移到文件头部。
+func needsFastStart(ext string) bool {
+	return ext == "mp4" || ext == "mov" || ext == "m4v"
 }
 
 // runExact 精准模式：固定高质量重编码，严格按所选时间裁剪。
@@ -196,7 +373,7 @@ func runExact(ctx context.Context, bin string, req Request, out string, duration
 		args = append(args, "-map", "0:s?", "-c:s", "copy", "-map_chapters", "0")
 	}
 
-	if ext == "mp4" || ext == "mov" || ext == "m4v" {
+	if needsFastStart(ext) {
 		args = append(args, "-movflags", "+faststart")
 	}
 

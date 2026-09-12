@@ -24,7 +24,7 @@ import {
   OpenVideoDialog,
   RevealInFolder,
 } from '../wailsjs/go/main/App'
-import { EventsOn } from '../wailsjs/runtime'
+import { EventsOn, OnFileDrop, OnFileDropOff } from '../wailsjs/runtime'
 
 const MIN_KEEP = 1
 
@@ -176,8 +176,10 @@ export default function App() {
       setExportStatus('failed')
     })
 
-    // 拖放文件（Wails 提供绝对路径）。无论当前是否有视频在预览都可用。
-    const offDrop = EventsOn('wails:file-drop', (_x: number, _y: number, paths: string[]) => {
+    // 拖放文件。必须用 runtime.OnFileDrop 注册：它会在 drop 时阻止 WebView 的默认行为
+    // （否则 WebView 会自己用新窗口播放被拖入的视频），并把文件解析成绝对路径后回调。
+    // 第二个参数传 false：整窗口都可接收，而不是只有带 --wails-drop-target 样式的元素。
+    OnFileDrop((_x: number, _y: number, paths: string[]) => {
       dragDepth.current = 0
       setDropActive(false)
       if (!paths || paths.length === 0) return
@@ -186,11 +188,12 @@ export default function App() {
         return
       }
       OpenPath(paths[0]).catch(() => undefined)
-    })
+    }, false)
 
-    // DOM 事件只负责视觉反馈与阻止浏览器默认行为，真实路径由 wails:file-drop 提供
+    // DOM 事件只负责拖拽时的视觉反馈
     const onDragEnter = (e: DragEvent) => {
       if (!hasFiles(e)) return
+      e.preventDefault()
       dragDepth.current += 1
       setDropActive(true)
     }
@@ -203,9 +206,11 @@ export default function App() {
       dragDepth.current = Math.max(0, dragDepth.current - 1)
       if (dragDepth.current === 0) setDropActive(false)
     }
-    const onDrop = () => {
+    // OnFileDrop 已经阻止了默认行为，这里再兜一层，并顺手收起拖拽提示。
+    const onDrop = (e: DragEvent) => {
       dragDepth.current = 0
       setDropActive(false)
+      e.preventDefault()
     }
     window.addEventListener('dragenter', onDragEnter)
     window.addEventListener('dragover', onDragOver)
@@ -223,7 +228,7 @@ export default function App() {
       offProg?.()
       offDone?.()
       offFail?.()
-      offDrop?.()
+      OnFileDropOff()
       window.removeEventListener('dragenter', onDragEnter)
       window.removeEventListener('dragover', onDragOver)
       window.removeEventListener('dragleave', onDragLeave)

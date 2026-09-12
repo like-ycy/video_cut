@@ -486,7 +486,20 @@ func (a *App) ExportVideo(mode string, start, end float64) (string, error) {
 			close(done)
 		}()
 
-		req := export.Request{Src: src, Mode: m, Start: start, End: end, Output: final}
+		audioCodec := ""
+		if len(info.AudioCodecs) > 0 {
+			audioCodec = info.AudioCodecs[0]
+		}
+		req := export.Request{
+			Src:           src,
+			Mode:          m,
+			Start:         start,
+			End:           end,
+			Output:        final,
+			VideoCodec:    info.VideoCodec,
+			AudioCodec:    audioCodec,
+			SubtitleCount: info.SubtitleCount,
+		}
 
 		var onProg func(export.Progress)
 		if m == export.ModeExact {

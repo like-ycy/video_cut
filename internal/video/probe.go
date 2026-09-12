@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -55,14 +54,14 @@ type sideData struct {
 
 // stream 是 ffprobe 输出的单个流。
 type stream struct {
-	CodecName    string            `json:"codec_name"`
-	CodecType    string            `json:"codec_type"`
-	Width        int               `json:"width"`
-	Height       int               `json:"height"`
-	RFrameRate   string            `json:"r_frame_rate"`
-	AvgFrameRate string            `json:"avg_frame_rate"`
-	Duration     string            `json:"duration"`
-	SideDataList []sideData        `json:"side_data_list"`
+	CodecName    string                 `json:"codec_name"`
+	CodecType    string                 `json:"codec_type"`
+	Width        int                    `json:"width"`
+	Height       int                    `json:"height"`
+	RFrameRate   string                 `json:"r_frame_rate"`
+	AvgFrameRate string                 `json:"avg_frame_rate"`
+	Duration     string                 `json:"duration"`
+	SideDataList []sideData             `json:"side_data_list"`
 	Tags         map[string]interface{} `json:"tags"`
 }
 
@@ -159,7 +158,7 @@ func Probe(ctx context.Context, file string) (*MediaInfo, error) {
 
 // runProbe 执行 ffprobe 并返回 JSON 输出。
 func runProbe(ctx context.Context, bin, file string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, bin,
+	cmd := ffmpeg.Command(ctx, bin,
 		"-v", "error",
 		"-print_format", "json",
 		"-show_format",
