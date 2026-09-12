@@ -1,0 +1,125 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate release tag
+        run: |
+          [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "Release tag must match vMAJOR.MINOR.PATCH"
+            exit 1
+          }
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Set application version
+        run: |
+          node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("wails.json","utf8"));p.info={...(p.info||{}),productVersion:process.env.GITHUB_REF_NAME.slice(1)};fs.writeFileSync("wails.json",JSON.stringify(p,null,2)+"\n");'
+
+      - name: Build macOS app
+        run: go run github.com/wailsapp/wails/v2/cmd/wails@v2.15.0 build -clean -platform darwin/arm64
+
+      - name: Package macOS app
+        run: |
+          test -d build/bin/videocut.app
+          ditto -c -k --sequesterRsrc --keepParent \
+            build/bin/videocut.app \
+            "videocut-${GITHUB_REF_NAME}-macos-arm64.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64
+          path: videocut-*-macos-arm64.zip
+          if-no-files-found: error
+
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate release tag
+        shell: bash
+        run: |
+          [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "Release tag must match vMAJOR.MINOR.PATCH"
+            exit 1
+          }
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Set application version
+        run: node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("wails.json","utf8"));p.info={...(p.info||{}),productVersion:process.env.GITHUB_REF_NAME.slice(1)};fs.writeFileSync("wails.json",JSON.stringify(p,null,2)+"\n");'
+
+      - name: Build Windows executable
+        run: go run github.com/wailsapp/wails/v2/cmd/wails@v2.15.0 build -clean -platform windows/amd64
+
+      - name: Prepare Windows artifact
+        shell: pwsh
+        run: Copy-Item build/bin/videocut.exe "videocut-$env:GITHUB_REF_NAME-windows-amd64.exe"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-amd64
+          path: videocut-*-windows-amd64.exe
+          if-no-files-found: error
+
+  release:
+    needs: [macos, windows]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          shopt -s nullglob
+          assets=(release-assets/*)
+          test "${#assets[@]}" -eq 2
+
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
+              --title "videocut $GITHUB_REF_NAME" \
+              --generate-notes
+          fi
