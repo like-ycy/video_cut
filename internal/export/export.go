@@ -150,7 +150,7 @@ func Run(ctx context.Context, req Request, onProgress func(Progress)) (*Result, 
 }
 
 // runFast 极速模式：默认流复制，不重编码。
-// 源为 H.264 / HEVC + AAC 时先尝试混合裁剪（见 runSmart）：纯复制必须从起点之前的关键帧
+// 源为 H.264 + AAC 时先尝试混合裁剪（见 runSmart）：纯复制必须从起点之前的关键帧
 // 开始，成片会多带一段内容，部分播放器（PotPlayer 硬解等）在这类文件上快进会卡在一帧；
 // 混合裁剪只重编码开头到下一个关键帧的一小段，成片首帧就是关键帧，兼容性等同重新编码。
 func runFast(ctx context.Context, paths ffmpeg.Paths, req Request, out string, duration float64, ext string, warnings *[]string) error {
@@ -201,9 +201,6 @@ const maxSmartHeadSec = 30.0
 // 关键帧扫描窗口（秒）。只扫描起点之后的一小段，避免整片扫描。
 const keyframeScanWindow = 120.0
 
-// 混合裁剪中间片段的时间基准。两段必须用同一个基准，否则拼接时时间戳会被整体缩放。
-const smartTimescale = "90000"
-
 // runSmart 混合裁剪：重编码 [start, 下一个关键帧) 这一小段，其后原样复制，最后无损拼接。
 // 任何一步失败都返回错误，由调用方退回纯复制。
 func runSmart(ctx context.Context, paths ffmpeg.Paths, req Request, out string, ext string) error {
@@ -218,11 +215,13 @@ func runSmart(ctx context.Context, paths ffmpeg.Paths, req Request, out string, 
 		return fmt.Errorf("不适合混合裁剪")
 	}
 
-	head, err := fsutil.CreateTempWithExt(req.Output, ".mp4")
+	// MPEG-TS 中 H.264 参数集会在关键帧附近带入码流，避免 MP4 concat 只沿用头段
+	// extradata，导致尾段使用另一套 SPS/PPS 时硬解码器卡住。TS 同时统一到 90 kHz 时间基准。
+	head, err := fsutil.CreateTempWithExt(req.Output, ".ts")
 	if err != nil {
 		return err
 	}
-	body, err := fsutil.CreateTempWithExt(req.Output, ".mp4")
+	body, err := fsutil.CreateTempWithExt(req.Output, ".ts")
 	if err != nil {
 		fsutil.RemoveQuiet(head)
 		return err
@@ -244,8 +243,13 @@ func runSmart(ctx context.Context, paths ffmpeg.Paths, req Request, out string, 
 		"-y", "-ss", fmtTS(req.Start), "-i", req.Src, "-t", fmtTS(headDur),
 		"-map", "0:v:0", "-map", "0:a?",
 	}
-	headArgs = append(headArgs, headVideoArgs(req.VideoCodec)...)
-	headArgs = append(headArgs, "-c:a", "aac", "-b:a", "192k", "-video_track_timescale", smartTimescale)
+	headArgs = append(headArgs, headVideoArgs()...)
+	headArgs = append(headArgs,
+		"-x264-params", "repeat-headers=1",
+		"-c:a", "aac", "-b:a", "192k",
+		"-f", "mpegts", "-muxpreload", "0", "-muxdelay", "0",
+		"-avoid_negative_ts", "make_zero",
+	)
 	headArgs = append(headArgs, head)
 	if err := ffmpeg.Run(ctx, paths.FFmpeg, headArgs); err != nil {
 		return err
@@ -254,11 +258,21 @@ func runSmart(ctx context.Context, paths ffmpeg.Paths, req Request, out string, 
 	// 其余：起点正好是关键帧，复制后时间戳自然从 0 开始，不会带入多余片段。
 	// 这里不能用 -avoid_negative_ts：它会让 FFmpeg 把关键帧之前的画面一并保留，
 	// 成片就会多出一段、与开头重编码的部分重复。
-	bodyArgs := []string{
-		"-y", "-ss", fmtTS(cut), "-i", req.Src, "-t", fmtTS(req.End - cut),
-		"-map", "0:v:0", "-map", "0:a?",
-		"-c", "copy", "-video_track_timescale", smartTimescale,
+	bodyArgs := []string{"-y"}
+	// Matroska 的输入前 seek 可能保留关键帧前的包（即使 -avoid_negative_ts），
+	// 造成 body 比请求时长多出一个 GOP。非 MP4 容器改用输入后 seek，准确丢弃前置包。
+	if needsFastStart(strings.TrimPrefix(strings.ToLower(filepath.Ext(req.Src)), ".")) {
+		bodyArgs = append(bodyArgs, "-ss", fmtTS(cut), "-i", req.Src)
+	} else {
+		bodyArgs = append(bodyArgs, "-i", req.Src, "-ss", fmtTS(cut))
 	}
+	bodyArgs = append(bodyArgs,
+		"-t", fmtTS(req.End-cut),
+		"-map", "0:v:0", "-map", "0:a?",
+		"-c", "copy", "-bsf:v", "h264_mp4toannexb",
+		"-f", "mpegts", "-muxpreload", "0", "-muxdelay", "0",
+		"-avoid_negative_ts", "make_zero",
+	)
 	bodyArgs = append(bodyArgs, body)
 	if err := ffmpeg.Run(ctx, paths.FFmpeg, bodyArgs); err != nil {
 		return err
@@ -267,7 +281,14 @@ func runSmart(ctx context.Context, paths ffmpeg.Paths, req Request, out string, 
 	if err := writeConcatList(list, []string{head, body}); err != nil {
 		return err
 	}
-	concatArgs := []string{"-y", "-f", "concat", "-safe", "0", "-i", list, "-map", "0", "-c", "copy"}
+	concatArgs := []string{
+		"-y", "-f", "concat", "-safe", "0", "-i", list,
+		"-map", "0", "-c", "copy", "-avoid_negative_ts", "make_zero", "-fflags", "+genpts",
+	}
+	if needsFastStart(ext) {
+		// AAC 从 MPEG-TS 解出后需要转回 MP4/MOV 的 AudioSpecificConfig。
+		concatArgs = append(concatArgs, "-bsf:a", "aac_adtstoasc")
+	}
 	if needsFastStart(ext) {
 		concatArgs = append(concatArgs, "-movflags", "+faststart")
 	}
@@ -275,7 +296,7 @@ func runSmart(ctx context.Context, paths ffmpeg.Paths, req Request, out string, 
 	return ffmpeg.Run(ctx, paths.FFmpeg, concatArgs)
 }
 
-// smartEligible 判断能否使用混合裁剪。只支持 H.264 / HEVC 视频与 AAC（或无）音轨：
+// smartEligible 判断能否使用混合裁剪。只支持 H.264 视频与 AAC（或无）音轨：
 // 开头重编码出来的流必须和后面复制的流完全一致才能无损拼接，其它编码一律退回纯复制。
 // 有字幕轨时也不走混合方式，避免字幕被静默丢弃。
 func smartEligible(req Request) bool {
@@ -283,7 +304,7 @@ func smartEligible(req Request) bool {
 		return false
 	}
 	switch strings.ToLower(req.VideoCodec) {
-	case "h264", "avc1", "hevc", "hvc1", "hev1":
+	case "h264", "avc1":
 	default:
 		return false
 	}
@@ -293,14 +314,9 @@ func smartEligible(req Request) bool {
 	return strings.ToLower(req.AudioCodec) == "aac"
 }
 
-// headVideoArgs 返回开头片段的编码参数，编码器要与源编码对应。
-func headVideoArgs(codec string) []string {
-	switch strings.ToLower(codec) {
-	case "hevc", "hvc1", "hev1":
-		return []string{"-c:v", "libx265", "-preset", "veryfast", "-crf", "20"}
-	default:
-		return []string{"-c:v", "libx264", "-preset", "veryfast", "-crf", "18"}
-	}
+// headVideoArgs 返回 H.264 开头片段的编码参数。
+func headVideoArgs() []string {
+	return []string{"-c:v", "libx264", "-preset", "veryfast", "-crf", "18"}
 }
 
 // firstKeyframeAfter 返回视频流中第一个不早于 t 的关键帧时间。
