@@ -88,6 +88,76 @@ jobs:
       - name: Build Windows executable
         run: go run github.com/wailsapp/wails/v2/cmd/wails@v2.15.0 build -clean -platform windows/amd64
 
+      - name: Sign Windows executable
+        shell: pwsh
+        env:
+          WINDOWS_SIGNING_PFX_BASE64: ${{ secrets.WINDOWS_SIGNING_PFX_BASE64 }}
+          WINDOWS_SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-StrictMode -Version Latest
+
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_PFX_BASE64)) {
+            throw 'WINDOWS_SIGNING_PFX_BASE64 secret is not configured'
+          }
+          if ($null -eq $env:WINDOWS_SIGNING_PFX_PASSWORD) {
+            throw 'WINDOWS_SIGNING_PFX_PASSWORD secret is not configured'
+          }
+
+          $tempRoot = Join-Path $env:RUNNER_TEMP 'videocut-signing'
+          $pfxPath = Join-Path $tempRoot 'signing.pfx'
+          $certPath = Join-Path $tempRoot 'signing.cer'
+          New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
+
+          try {
+            [IO.File]::WriteAllBytes(
+              $pfxPath,
+              [Convert]::FromBase64String($env:WINDOWS_SIGNING_PFX_BASE64)
+            )
+
+            $certificate = [Security.Cryptography.X509Certificates.X509Certificate2]::new(
+              $pfxPath,
+              $env:WINDOWS_SIGNING_PFX_PASSWORD,
+              [Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable
+            )
+            [IO.File]::WriteAllBytes(
+              $certPath,
+              $certificate.Export([Security.Cryptography.X509Certificates.X509ContentType]::Cert)
+            )
+            Import-Certificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\Root | Out-Null
+            Import-Certificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\TrustedPublisher | Out-Null
+
+            $signtool = Get-ChildItem `
+              -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin" `
+              -Filter signtool.exe `
+              -Recurse `
+              -File `
+              -ErrorAction SilentlyContinue |
+              Sort-Object FullName -Descending |
+              Select-Object -First 1
+            if ($null -eq $signtool) {
+              throw 'Windows SDK signtool.exe not found'
+            }
+
+            & $signtool.FullName sign `
+              /f $pfxPath `
+              /p $env:WINDOWS_SIGNING_PFX_PASSWORD `
+              /fd SHA256 `
+              /tr http://timestamp.digicert.com `
+              /td SHA256 `
+              build/bin/videocut.exe
+            if ($LASTEXITCODE -ne 0) {
+              throw "signtool sign failed with exit code $LASTEXITCODE"
+            }
+
+            & $signtool.FullName verify /pa /all /v build/bin/videocut.exe
+            if ($LASTEXITCODE -ne 0) {
+              throw "signtool verify failed with exit code $LASTEXITCODE"
+            }
+          } finally {
+            Remove-Item -Path $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
       - name: Prepare Windows artifact
         shell: pwsh
         run: Copy-Item build/bin/videocut.exe "videocut-$env:GITHUB_REF_NAME-windows-amd64.exe"
