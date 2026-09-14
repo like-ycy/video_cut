@@ -5,13 +5,26 @@ interface Props {
   media: MediaInfo | null
   mode: TrimMode
   locked: boolean
+  version: string
+  hasUpdate: boolean
   onOpen: () => void
   onClear: () => void
   onModeChange: (mode: TrimMode) => void
+  onCheckUpdate: () => void
 }
 
-/** 顶部工具栏：打开视频、当前文件名、模式切换。 */
-export default function TopBar({ media, mode, locked, onOpen, onClear, onModeChange }: Props) {
+/** 顶部工具栏：打开视频、当前文件名、模式切换、版本信息。 */
+export default function TopBar({
+  media,
+  mode,
+  locked,
+  version,
+  hasUpdate,
+  onOpen,
+  onClear,
+  onModeChange,
+  onCheckUpdate,
+}: Props) {
   return (
     <header className="h-14 shrink-0 border-b border-app-border bg-app-surface px-4 flex items-center gap-3">
       <button
@@ -65,6 +78,21 @@ export default function TopBar({ media, mode, locked, onOpen, onClear, onModeCha
           label="精准模式"
         />
       </div>
+
+      <button
+        type="button"
+        onClick={onCheckUpdate}
+        title="点击检查更新"
+        className="relative flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs text-app-muted hover:bg-app-subtle hover:text-app-text transition-colors"
+      >
+        <span>{version || '检查更新'}</span>
+        {hasUpdate && (
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-500" />
+          </span>
+        )}
+      </button>
     </header>
   )
 }

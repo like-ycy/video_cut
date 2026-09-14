@@ -7,6 +7,7 @@ import Player from './components/Player'
 import ThumbTimeline from './components/ThumbTimeline'
 import TimeCodeRow from './components/TimeCodeRow'
 import TopBar from './components/TopBar'
+import UpdateModal from './components/UpdateModal'
 import { AlertIcon } from './components/icons'
 import type {
   ExportFailure,
@@ -15,13 +16,23 @@ import type {
   MediaInfo,
   ThumbItem,
   TrimMode,
+  UpdateInfo,
+  UpdateProgress,
+  UpdateState,
 } from './types'
 import {
+  ApplyUpdateAndRestart,
   CancelExport,
+  CancelUpdateDownload,
+  CheckUpdate,
   ClearMedia,
   CurrentMediaURL,
+  DownloadUpdate,
   ExportVideo,
+  GetAppVersion,
+  GetPendingUpdate,
   OpenPath,
+  OpenURL,
   OpenVideoDialog,
   RevealInFolder,
 } from '../wailsjs/go/main/App'
@@ -104,8 +115,42 @@ export default function App() {
 
   const [dropActive, setDropActive] = useState(false)
 
+  // ---- 软件更新状态 ----
+  const [appVersion, setAppVersion] = useState('')
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
+  const [updateModalOpen, setUpdateModalOpen] = useState(false)
+  const [updateStatus, setUpdateStatus] = useState<UpdateState>('prompt')
+  const [updateProgress, setUpdateProgress] = useState<UpdateProgress | null>(null)
+  const [updateError, setUpdateError] = useState('')
+  const [toastMessage, setToastMessage] = useState('')
+
   // ---- 后端事件 ----
   useEffect(() => {
+    GetAppVersion().then((v) => setAppVersion(v)).catch(() => undefined)
+
+    const offUpdateAvail = EventsOn('update:available', (info: UpdateInfo) => {
+      setUpdateInfo(info)
+      setUpdateStatus('prompt')
+      setUpdateModalOpen(true)
+    })
+    const offUpdateProg = EventsOn('update:progress', (prog: UpdateProgress) => {
+      setUpdateProgress(prog)
+      setUpdateStatus('downloading')
+    })
+    const offUpdateDone = EventsOn('update:done', () => {
+      setUpdateStatus('downloaded')
+    })
+    const offUpdateFail = EventsOn('update:failed', (err: string) => {
+      setUpdateError(err || '更新发生错误')
+      setUpdateStatus('failed')
+    })
+    GetPendingUpdate().then((info) => {
+      if (!info?.hasUpdate) return
+      setUpdateInfo(info)
+      setUpdateStatus('prompt')
+      setUpdateModalOpen(true)
+    }).catch(() => undefined)
+
     const offOpened = EventsOn('video:opened', (payload: OpenedEvent) => {
       if (!payload || typeof payload.seq !== 'number') return
       const { seq, info } = payload
@@ -220,6 +265,10 @@ export default function App() {
     window.addEventListener('dragend', onDrop)
 
     return () => {
+      offUpdateAvail?.()
+      offUpdateProg?.()
+      offUpdateDone?.()
+      offUpdateFail?.()
       offOpened?.()
       offFailed?.()
       offReady?.()
@@ -327,16 +376,74 @@ export default function App() {
     setFailure(null)
   }, [])
 
+  // ---- 软件更新处理 ----
+  const handleCheckUpdate = useCallback(async () => {
+    setUpdateError('')
+    try {
+      const info = await CheckUpdate()
+      if (info && info.hasUpdate) {
+        setUpdateInfo(info)
+        setUpdateStatus('prompt')
+        setUpdateModalOpen(true)
+      } else {
+        const ver = (info?.currentVersion || appVersion || '当前版本')
+        setToastMessage(`当前已是最新版本 (${ver})`)
+        setTimeout(() => setToastMessage(''), 3000)
+      }
+    } catch (e) {
+      setOpenError('检查更新失败: ' + String(e))
+    }
+  }, [appVersion])
+
+  const handleStartDownload = useCallback((useProxy: boolean) => {
+    setUpdateError('')
+    setUpdateProgress(null)
+    setUpdateStatus('downloading')
+    DownloadUpdate(useProxy).catch((err) => {
+      setUpdateError(String(err))
+      setUpdateStatus('failed')
+    })
+  }, [])
+
+  const handleCancelDownload = useCallback(() => {
+    CancelUpdateDownload().catch(() => undefined)
+    setUpdateStatus('prompt')
+  }, [])
+
+  const handleApplyAndRestart = useCallback(async () => {
+    try {
+      await ApplyUpdateAndRestart()
+    } catch (err) {
+      setUpdateError(String(err))
+      setUpdateStatus('failed')
+    }
+  }, [])
+
+  const handleOpenBrowser = useCallback((url: string) => {
+    if (url) {
+      OpenURL(url).catch(() => undefined)
+    }
+  }, [])
+
   return (
     <div className="relative flex h-screen flex-col overflow-hidden bg-app-bg text-app-text">
       <TopBar
         media={media}
         mode={mode}
         locked={locked}
+        version={appVersion}
+        hasUpdate={Boolean(updateInfo?.hasUpdate)}
         onOpen={handleOpen}
         onClear={handleClear}
         onModeChange={setMode}
+        onCheckUpdate={handleCheckUpdate}
       />
+
+      {toastMessage && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 rounded-lg bg-slate-800/90 px-4 py-2 text-xs text-white shadow-xl backdrop-blur-sm transition-all">
+          {toastMessage}
+        </div>
+      )}
 
       {openError && (
         <div className="flex items-center gap-2 border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">
@@ -428,6 +535,19 @@ export default function App() {
       />
 
       <DropOverlay active={dropActive} replacing={Boolean(media)} />
+
+      <UpdateModal
+        info={updateInfo}
+        isOpen={updateModalOpen}
+        status={updateStatus}
+        progress={updateProgress}
+        errorMessage={updateError}
+        onClose={() => setUpdateModalOpen(false)}
+        onStartDownload={handleStartDownload}
+        onCancelDownload={handleCancelDownload}
+        onApplyAndRestart={handleApplyAndRestart}
+        onOpenBrowser={handleOpenBrowser}
+      />
     </div>
   )
 }

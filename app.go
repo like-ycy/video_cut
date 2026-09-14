@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
@@ -15,20 +16,26 @@ import (
 	"videocut/internal/fsutil"
 	"videocut/internal/preview"
 	"videocut/internal/thumbnail"
+	"videocut/internal/updater"
+	"videocut/internal/version"
 	"videocut/internal/video"
 )
 
 // 事件名，前端通过 EventsOn 监听。
 const (
-	EventVideoOpened   = "video:opened"
-	EventVideoFailed   = "video:failed"
-	EventPreviewReady  = "preview:ready"
-	EventThumbProgress = "thumb:progress"
-	EventThumbDone     = "thumb:done"
-	EventExportStart   = "export:start"
-	EventExportProg    = "export:progress"
-	EventExportDone    = "export:done"
-	EventExportFailed  = "export:failed"
+	EventVideoOpened     = "video:opened"
+	EventVideoFailed     = "video:failed"
+	EventPreviewReady    = "preview:ready"
+	EventThumbProgress   = "thumb:progress"
+	EventThumbDone       = "thumb:done"
+	EventExportStart     = "export:start"
+	EventExportProg      = "export:progress"
+	EventExportDone      = "export:done"
+	EventExportFailed    = "export:failed"
+	EventUpdateAvailable = "update:available"
+	EventUpdateProgress  = "update:progress"
+	EventUpdateDone      = "update:done"
+	EventUpdateFailed    = "update:failed"
 )
 
 // 支持的视频扩展名（其他格式以实际探测结果决定）。
@@ -40,8 +47,9 @@ var supportedExt = map[string]bool{
 type App struct {
 	ctx context.Context
 
-	media  *preview.Server
-	thumbs *thumbnail.Manager
+	media   *preview.Server
+	thumbs  *thumbnail.Manager
+	updater *updater.Manager
 
 	mu          sync.Mutex
 	jobsMu      sync.Mutex
@@ -55,11 +63,12 @@ type App struct {
 	openCancel  context.CancelFunc
 	openProbeWG sync.WaitGroup
 
-	proxyCancel  context.CancelFunc
-	proxyDone    chan struct{}
-	exportCancel context.CancelFunc
-	exportDone   chan struct{}
-	exporting    bool
+	proxyCancel   context.CancelFunc
+	proxyDone     chan struct{}
+	exportCancel  context.CancelFunc
+	exportDone    chan struct{}
+	exporting     bool
+	pendingUpdate *updater.UpdateInfo
 }
 
 // NewApp 创建带私有缓存目录的 App 实例。
@@ -78,6 +87,7 @@ func NewApp() (*App, error) {
 		tmpRoot: tmpRoot,
 		media:   preview.New(thumbDir),
 		thumbs:  thumbnail.New(thumbDir),
+		updater: updater.New(),
 	}, nil
 }
 
@@ -102,6 +112,9 @@ func (a *App) startup(ctx context.Context) {
 		a.mu.Unlock()
 		runtime.LogInfo(ctx, "媒体服务: "+base)
 	}
+
+	// 启动后异步检查更新，不阻塞界面启动
+	go a.checkUpdateOnStartup()
 }
 
 // shutdown 在应用退出时清理临时文件并停止任务。
@@ -112,6 +125,10 @@ func (a *App) shutdown(ctx context.Context) {
 	a.cancelExportAndWait()
 	a.jobsMu.Unlock()
 	a.media.Close()
+	if a.updater != nil {
+		a.updater.CancelDownload()
+		a.updater.CleanTempDir()
+	}
 	if a.tmpRoot != "" {
 		_ = os.RemoveAll(a.tmpRoot)
 	}
@@ -586,4 +603,115 @@ func (a *App) RevealInFolder(path string) error {
 // 使用小写开头，避免被暴露为前端可调用的方法。
 func (a *App) mediaServer() *preview.Server {
 	return a.media
+}
+
+// checkUpdateOnStartup 启动 2 秒后异步检查更新，若有可用更新且用户未在导出视频，推送事件给前端。
+func (a *App) checkUpdateOnStartup() {
+	time.Sleep(2 * time.Second)
+	if a.ctx == nil || a.updater == nil {
+		return
+	}
+
+	info, err := a.updater.CheckUpdate()
+	if err != nil {
+		runtime.LogDebug(a.ctx, "启动自动检查更新失败: "+err.Error())
+		return
+	}
+
+	if info != nil && info.HasUpdate {
+		a.mu.Lock()
+		a.pendingUpdate = info
+		a.mu.Unlock()
+		runtime.EventsEmit(a.ctx, EventUpdateAvailable, info)
+	}
+}
+
+// GetAppVersion 返回当前软件版本号。
+func (a *App) GetAppVersion() string {
+	return version.GetVersion()
+}
+
+// CheckUpdate 手动触发检查更新。
+func (a *App) CheckUpdate() (*updater.UpdateInfo, error) {
+	if a.updater == nil {
+		return nil, fmt.Errorf("更新器未初始化")
+	}
+	info, err := a.updater.CheckUpdate()
+	if err == nil && info != nil && info.HasUpdate {
+		a.mu.Lock()
+		a.pendingUpdate = info
+		a.mu.Unlock()
+	}
+	return info, err
+}
+
+// GetPendingUpdate 返回启动检查得到的更新信息，避免前端监听事件前错过通知。
+func (a *App) GetPendingUpdate() *updater.UpdateInfo {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.pendingUpdate == nil {
+		return nil
+	}
+	info := *a.pendingUpdate
+	return &info
+}
+
+// DownloadUpdate 开始下载更新包，支持可选的国内镜像加速。
+func (a *App) DownloadUpdate(useProxy bool) error {
+	if a.updater == nil {
+		return fmt.Errorf("更新器未初始化")
+	}
+
+	go func() {
+		err := a.updater.StartDownload(useProxy, func(prog updater.DownloadProgress) {
+			runtime.EventsEmit(a.ctx, EventUpdateProgress, prog)
+		})
+		if err != nil {
+			runtime.EventsEmit(a.ctx, EventUpdateFailed, err.Error())
+			return
+		}
+		runtime.EventsEmit(a.ctx, EventUpdateDone, nil)
+	}()
+
+	return nil
+}
+
+// CancelUpdateDownload 取消进行中的更新下载。
+func (a *App) CancelUpdateDownload() {
+	if a.updater != nil {
+		a.updater.CancelDownload()
+	}
+}
+
+// ApplyUpdateAndRestart 执行安装更新并重启应用。
+func (a *App) ApplyUpdateAndRestart() error {
+	a.mu.Lock()
+	exporting := a.exporting
+	a.mu.Unlock()
+	if exporting {
+		return fmt.Errorf("当前正在导出视频，请等待导出完成后再更新")
+	}
+
+	if a.updater == nil {
+		return fmt.Errorf("更新器未初始化")
+	}
+
+	if err := a.updater.ApplyAndRestart(); err != nil {
+		return err
+	}
+
+	// 延迟 300ms 让后台独立更新脚本正常拉起，随后退出当前主程序
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		runtime.Quit(a.ctx)
+	}()
+
+	return nil
+}
+
+// OpenURL 在系统默认浏览器中打开指定链接。
+func (a *App) OpenURL(targetURL string) {
+	if a.ctx != nil && targetURL != "" {
+		runtime.BrowserOpenURL(a.ctx, targetURL)
+	}
 }

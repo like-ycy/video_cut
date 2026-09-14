@@ -52,3 +52,25 @@ export type TrimMode = 'fast' | 'exact'
 
 /** 导出任务的展示状态。 */
 export type ExportStatus = 'idle' | 'running' | 'success' | 'failed'
+
+export interface UpdateInfo {
+  hasUpdate: boolean
+  currentVersion: string
+  latestVersion: string
+  releaseName: string
+  releaseNotes: string
+  releaseUrl: string
+  downloadUrl: string
+  assetName: string
+  assetSize: number
+  platform: string
+}
+
+export interface UpdateProgress {
+  downloaded: number
+  total: number
+  percent: number
+  speed: number
+}
+
+export type UpdateState = 'prompt' | 'downloading' | 'downloaded' | 'failed'
