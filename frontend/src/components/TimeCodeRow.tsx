@@ -148,11 +148,11 @@ function TimeField({
                     text-app-text outline-none transition-colors
                     disabled:bg-app-subtle disabled:text-app-muted
                     ${error
-                      ? 'border-red-500 focus:border-red-500'
-                      : 'border-app-border focus:border-brand-600'}`}
+                      ? 'border-app-danger focus:border-app-danger'
+                      : 'border-app-border focus:border-brand-600 dark:focus:border-brand-400'}`}
       />
       {error && (
-        <span className="flex items-center gap-1 text-xs text-red-600">
+        <span className="flex items-center gap-1 text-xs text-app-danger">
           <AlertIcon className="h-3 w-3" />
           {error}
         </span>

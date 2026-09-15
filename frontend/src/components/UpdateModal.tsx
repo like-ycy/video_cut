@@ -96,13 +96,13 @@ function PromptView({
     <div className="flex flex-col gap-4">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:text-brand-400">
             <DownloadIcon className="h-5 w-5" />
           </div>
           <div>
             <h3 className="text-base font-semibold text-app-text">发现新版本</h3>
             <p className="text-xs text-app-muted">
-              当前版本 {info.currentVersion} → <span className="font-semibold text-brand-600">{info.latestVersion}</span>
+              当前版本 {info.currentVersion} → <span className="font-semibold text-brand-600 dark:text-brand-400">{info.latestVersion}</span>
             </p>
           </div>
         </div>
@@ -154,7 +154,7 @@ function PromptView({
           <button
             type="button"
             onClick={onStart}
-            className="rounded-md bg-brand-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-brand-700 transition-colors"
+            className="rounded-md bg-brand-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-brand-700 dark:hover:bg-brand-500 transition-colors"
           >
             立即更新
           </button>
@@ -182,7 +182,7 @@ function DownloadingView({
     <div className="flex flex-col gap-4 py-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600 animate-pulse">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-app-info-soft text-app-info animate-pulse">
             <DownloadIcon className="h-5 w-5" />
           </div>
           <div>
@@ -190,12 +190,12 @@ function DownloadingView({
             <p className="text-xs text-app-muted">{info.latestVersion} ({info.assetName || '安装包'})</p>
           </div>
         </div>
-        <span className="text-sm font-semibold text-brand-600">{percent.toFixed(0)}%</span>
+        <span className="text-sm font-semibold text-brand-600 dark:text-brand-400">{percent.toFixed(0)}%</span>
       </div>
 
       <div className="relative h-2 w-full overflow-hidden rounded-full bg-app-subtle">
         <div
-          className="h-full bg-brand-600 transition-all duration-200 ease-out"
+          className="h-full bg-brand-600 dark:bg-brand-400 transition-all duration-200 ease-out"
           style={{ width: `${percent}%` }}
         />
       </div>
@@ -232,7 +232,7 @@ function DownloadedView({
   return (
     <div className="flex flex-col gap-4 py-2">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-app-ok-soft text-app-ok">
           <CheckIcon className="h-6 w-6" />
         </div>
         <div>
@@ -243,7 +243,7 @@ function DownloadedView({
         </div>
       </div>
 
-      <p className="rounded-lg bg-emerald-50/60 p-3 text-xs text-emerald-800 border border-emerald-100 leading-relaxed">
+      <p className="rounded-lg bg-app-ok-soft/60 p-3 text-xs text-app-ok-text border border-app-ok/20 leading-relaxed">
         点击「立即重启」后，程序将在后台自动完成文件替换并重新拉起。当前如果正在处理视频，请先保存。
       </p>
 
@@ -258,7 +258,7 @@ function DownloadedView({
         <button
           type="button"
           onClick={onApply}
-          className="flex items-center gap-1.5 rounded-md bg-emerald-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-emerald-700 transition-colors"
+          className="flex items-center gap-1.5 rounded-md bg-emerald-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-emerald-700 dark:hover:bg-emerald-500 transition-colors"
         >
           <RefreshIcon className="h-3.5 w-3.5" />
           立即重启并更新
@@ -284,16 +284,16 @@ function FailedView({
   return (
     <div className="flex flex-col gap-4 py-2">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-app-danger-soft text-app-danger">
           <AlertIcon className="h-6 w-6" />
         </div>
         <div>
           <h3 className="text-base font-semibold text-app-text">更新失败</h3>
-          <p className="text-xs text-rose-600">下载或安装过程发生错误</p>
+          <p className="text-xs text-app-danger-text">下载或安装过程发生错误</p>
         </div>
       </div>
 
-      <div className="rounded-lg bg-rose-50/60 p-3 text-xs text-rose-800 border border-rose-100 select-text">
+      <div className="rounded-lg bg-app-danger-soft/60 p-3 text-xs text-app-danger-text border border-app-danger/20 select-text">
         {errorMessage || '网络请求超时或连接中断，请检查网络后重试。'}
       </div>
 
@@ -318,7 +318,7 @@ function FailedView({
           <button
             type="button"
             onClick={onRetry}
-            className="rounded-md bg-brand-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-brand-700 transition-colors"
+            className="rounded-md bg-brand-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-brand-700 dark:hover:bg-brand-500 transition-colors"
           >
             重试
           </button>

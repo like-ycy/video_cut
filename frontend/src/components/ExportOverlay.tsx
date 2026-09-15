@@ -83,9 +83,9 @@ function Running({
         </p>
       ) : (
         <>
-          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
             <div
-              className="h-full rounded-full bg-brand-600 transition-[width] duration-200"
+              className="h-full rounded-full bg-brand-600 dark:bg-brand-400 transition-[width] duration-200"
               style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
             />
           </div>
@@ -124,7 +124,7 @@ function Success({
   return (
     <div>
       <div className="flex items-center gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-50 text-brand-700 dark:text-brand-400">
           <CheckIcon className="h-4 w-4" />
         </span>
         <h3 className="text-sm font-medium text-app-text">导出完成</h3>
@@ -142,7 +142,7 @@ function Success({
       </dl>
 
       {drifted && (
-        <p className="mt-3 rounded-md bg-amber-50 px-2.5 py-2 text-xs text-amber-800">
+        <p className="mt-3 rounded-md bg-app-warn-soft px-2.5 py-2 text-xs text-app-warn-text">
           {result.mode === 'fast'
             ? '极速模式会按附近关键帧裁剪，输出时长可能与请求范围略有差异'
             : '实际时长与所选范围略有差异'}
@@ -150,7 +150,7 @@ function Success({
       )}
 
       {result.warnings && result.warnings.length > 0 && (
-        <p className="mt-2 text-xs text-amber-700">{result.warnings.join('；')}</p>
+        <p className="mt-2 text-xs text-app-warn-text">{result.warnings.join('；')}</p>
       )}
 
       <div className="mt-5 flex justify-end gap-2">
@@ -166,7 +166,7 @@ function Success({
           type="button"
           onClick={onClose}
           className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white
-                     hover:bg-brand-700 transition-colors"
+                     hover:bg-brand-700 dark:hover:bg-brand-500 transition-colors"
         >
           完成
         </button>
@@ -193,7 +193,7 @@ function Failed({
   return (
     <div>
       <div className="flex items-center gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-red-50 text-red-600">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-app-danger-soft text-app-danger">
           <AlertIcon className="h-4 w-4" />
         </span>
         <h3 className="text-sm font-medium text-app-text">裁剪失败</h3>
@@ -233,7 +233,7 @@ function Failed({
             type="button"
             onClick={onRetryExact}
             className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white
-                       hover:bg-brand-700 transition-colors"
+                       hover:bg-brand-700 dark:hover:bg-brand-500 transition-colors"
           >
             改用精准模式重试
           </button>

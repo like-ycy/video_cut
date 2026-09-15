@@ -1,13 +1,30 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <meta name="color-scheme" content="light dark"/>
     <title>videocut</title>
+    <script>
+      // 首帧前应用主题，减少亮暗切换闪烁
+      (function () {
+        try {
+          var pref = localStorage.getItem('videocut-theme') || 'system';
+          var isDark = pref === 'dark' || (
+            pref === 'system' &&
+            window.matchMedia &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches
+          );
+          document.documentElement.classList.toggle('dark', isDark);
+          document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+          var schemeMeta = document.querySelector('meta[name="color-scheme"]');
+          if (schemeMeta) schemeMeta.content = isDark ? 'dark' : 'light';
+        } catch (e) { /* ignore */ }
+      })();
+    </script>
 </head>
 <body>
 <div id="root"></div>
 <script src="./src/main.tsx" type="module"></script>
 </body>
 </html>
-

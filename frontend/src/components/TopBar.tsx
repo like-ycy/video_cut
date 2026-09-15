@@ -1,5 +1,6 @@
 import type { MediaInfo, TrimMode } from '../types'
-import { BoltIcon, FolderIcon, TargetIcon } from './icons'
+import type { ThemePreference } from '../lib/theme'
+import { BoltIcon, FolderIcon, MoonIcon, SunIcon, SystemThemeIcon, TargetIcon } from './icons'
 
 interface Props {
   media: MediaInfo | null
@@ -7,24 +8,33 @@ interface Props {
   locked: boolean
   version: string
   hasUpdate: boolean
+  themePreference: ThemePreference
+  themeLabel: string
   onOpen: () => void
   onClear: () => void
   onModeChange: (mode: TrimMode) => void
   onCheckUpdate: () => void
+  onToggleTheme: () => void
 }
 
-/** 顶部工具栏：打开视频、当前文件名、模式切换、版本信息。 */
+/** 顶部工具栏：打开视频、当前文件名、模式切换、主题、版本信息。 */
 export default function TopBar({
   media,
   mode,
   locked,
   version,
   hasUpdate,
+  themePreference,
+  themeLabel,
   onOpen,
   onClear,
   onModeChange,
   onCheckUpdate,
+  onToggleTheme,
 }: Props) {
+  const ThemeIcon =
+    themePreference === 'light' ? SunIcon : themePreference === 'dark' ? MoonIcon : SystemThemeIcon
+
   return (
     <header className="h-14 shrink-0 border-b border-app-border bg-app-surface px-4 flex items-center gap-3">
       <button
@@ -81,6 +91,17 @@ export default function TopBar({
 
       <button
         type="button"
+        onClick={onToggleTheme}
+        title={`${themeLabel}（点击切换）`}
+        aria-label={themeLabel}
+        className="flex items-center justify-center rounded-md border border-app-border bg-app-surface
+                   p-2 text-app-muted transition-colors hover:bg-app-subtle hover:text-app-text"
+      >
+        <ThemeIcon className="w-4 h-4" />
+      </button>
+
+      <button
+        type="button"
         onClick={onCheckUpdate}
         title="点击检查更新"
         className="relative flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs text-app-muted hover:bg-app-subtle hover:text-app-text transition-colors"
@@ -118,7 +139,7 @@ function ModeButton({
       className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors
         disabled:opacity-40 disabled:cursor-not-allowed
         ${active
-          ? 'bg-app-surface text-brand-700 shadow-sm border border-app-border'
+          ? 'bg-app-surface text-app-brand-text shadow-sm border border-app-border'
           : 'text-app-muted hover:text-app-text border border-transparent'}`}
     >
       {icon}

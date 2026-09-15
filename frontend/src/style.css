@@ -2,6 +2,64 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  color-scheme: light;
+
+  --color-app-bg: 248 250 252;
+  --color-app-surface: 255 255 255;
+  --color-app-border: 226 232 240;
+  --color-app-text: 15 23 42;
+  --color-app-muted: 100 116 139;
+  --color-app-subtle: 241 245 249;
+
+  --color-app-danger: 239 68 68;
+  --color-app-danger-soft: 254 242 242;
+  --color-app-danger-text: 185 28 28;
+  --color-app-warn: 245 158 11;
+  --color-app-warn-soft: 255 251 235;
+  --color-app-warn-text: 146 64 14;
+  --color-app-ok: 16 185 129;
+  --color-app-ok-soft: 236 253 245;
+  --color-app-ok-text: 6 78 59;
+  --color-app-info: 59 130 246;
+  --color-app-info-soft: 239 246 255;
+  --color-app-info-text: 29 78 216;
+  --color-app-brand: 0 137 123;
+  --color-app-brand-soft: 240 253 250;
+  --color-app-brand-text: 0 121 107;
+
+  --scrollbar-thumb: 203 213 225;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --color-app-bg: 15 23 42;
+  --color-app-surface: 30 41 59;
+  --color-app-border: 51 65 85;
+  --color-app-text: 226 232 240;
+  --color-app-muted: 148 163 184;
+  --color-app-subtle: 37 48 67;
+
+  --color-app-danger: 248 113 113;
+  --color-app-danger-soft: 69 24 24;
+  --color-app-danger-text: 252 165 165;
+  --color-app-warn: 251 191 36;
+  --color-app-warn-soft: 69 37 8;
+  --color-app-warn-text: 253 230 138;
+  --color-app-ok: 52 211 153;
+  --color-app-ok-soft: 6 50 40;
+  --color-app-ok-text: 110 231 183;
+  --color-app-info: 96 165 250;
+  --color-app-info-soft: 23 37 84;
+  --color-app-info-text: 147 197 253;
+  --color-app-brand: 45 212 191;
+  --color-app-brand-soft: 19 78 74;
+  --color-app-brand-text: 94 234 212;
+
+  --scrollbar-thumb: 71 85 105;
+}
+
 html,
 body,
 #root {
@@ -31,7 +89,7 @@ input[type='text'] {
   height: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: rgb(var(--scrollbar-thumb));
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-track {

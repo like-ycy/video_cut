@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTheme } from './hooks/useTheme'
 import BottomBar from './components/BottomBar'
 import DropOverlay from './components/DropOverlay'
 import EmptyState from './components/EmptyState'
@@ -88,6 +89,7 @@ function hasFiles(e: DragEvent): boolean {
 }
 
 export default function App() {
+  const { preference, themeLabel, toggleTheme } = useTheme()
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const openSeqRef = useRef(0)
   const exportSeqRef = useRef(0)
@@ -437,6 +439,9 @@ export default function App() {
         onClear={handleClear}
         onModeChange={setMode}
         onCheckUpdate={handleCheckUpdate}
+        themePreference={preference}
+        themeLabel={themeLabel}
+        onToggleTheme={toggleTheme}
       />
 
       {toastMessage && (
@@ -446,13 +451,13 @@ export default function App() {
       )}
 
       {openError && (
-        <div className="flex items-center gap-2 border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">
+        <div className="flex items-center gap-2 border-b border-app-danger/30 bg-app-danger-soft px-4 py-2 text-xs text-app-danger-text">
           <AlertIcon className="h-3.5 w-3.5" />
           {openError}
           <button
             type="button"
             onClick={() => setOpenError('')}
-            className="ml-auto text-red-500 hover:text-red-700"
+            className="ml-auto text-app-danger hover:opacity-80"
           >
             关闭
           </button>

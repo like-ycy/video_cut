@@ -18,7 +18,7 @@ export default function DropOverlay({ active, replacing }: Props) {
         className="flex flex-col items-center gap-3 rounded-lg border-2 border-dashed border-brand-600
                    bg-app-surface px-10 py-8 shadow-lg"
       >
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-600">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-600 dark:text-brand-400">
           <FilmIcon className="h-6 w-6" />
         </div>
         <p className="text-sm font-medium text-app-text">松开鼠标即可载入视频</p>

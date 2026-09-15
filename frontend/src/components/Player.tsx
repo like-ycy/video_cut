@@ -129,16 +129,16 @@ export default function Player({ src, duration, preparing, videoRef, onTimeChang
           onPointerMove={onBarPointerMove}
           onPointerUp={onBarPointerUp}
           onPointerCancel={onBarPointerUp}
-          className="group relative h-2.5 flex-1 cursor-pointer touch-none select-none rounded-full bg-slate-200"
+          className="group relative h-2.5 flex-1 cursor-pointer touch-none select-none rounded-full bg-slate-200 dark:bg-slate-700"
           title="拖动或点击跳转到指定位置"
         >
           <div
-            className="absolute inset-y-0 left-0 rounded-full bg-brand-600"
+            className="absolute inset-y-0 left-0 rounded-full bg-brand-600 dark:bg-brand-400"
             style={{ width: `${progress}%` }}
           />
           <div
             className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full
-                       bg-brand-600 opacity-0 transition-opacity group-hover:opacity-100"
+                       bg-brand-600 dark:bg-brand-400 opacity-0 transition-opacity group-hover:opacity-100"
             style={{ left: `${progress}%` }}
           />
         </div>

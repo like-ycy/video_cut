@@ -128,7 +128,7 @@ export default function ThumbTimeline({
         onPointerMove={moveScrub}
         onPointerUp={endScrub}
         onPointerCancel={endScrub}
-        className="relative overflow-hidden rounded-md border border-app-border bg-slate-100 touch-none"
+        className="relative overflow-hidden rounded-md border border-app-border bg-slate-100 dark:bg-slate-800 touch-none"
         style={{ height: TRACK_HEIGHT }}
       >
         {/* 缩略图 */}
@@ -150,10 +150,10 @@ export default function ThumbTimeline({
 
         {/* 加载骨架：固定尺寸，不引起布局跳动 */}
         {loading && (
-          <div className="absolute inset-0 animate-pulse bg-slate-200" />
+          <div className="absolute inset-0 animate-pulse bg-slate-200 dark:bg-slate-700" />
         )}
         {!loading && items.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center text-xs text-slate-400">
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-slate-400 dark:text-slate-500">
             缩略图不可用，仍可通过时间码裁剪
           </div>
         )}
@@ -250,7 +250,7 @@ function Handle({
     >
       <div
         className={`h-full w-[6px] rounded-sm shadow-sm transition-colors
-          ${active ? 'bg-brand-700' : 'bg-brand-600'}`}
+          ${active ? 'bg-brand-700 dark:bg-brand-400' : 'bg-brand-600 dark:bg-brand-500'}`}
       />
       <div className="pointer-events-none absolute h-3.5 w-[2px] rounded-full bg-white/90" />
     </div>

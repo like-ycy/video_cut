@@ -41,6 +41,7 @@ func main() {
 			Assets:  assets,
 			Handler: mediaHandler,
 		},
+		// WebView 加载前的占位底色；亮/暗切换由前端 CSS 负责。
 		BackgroundColour: &options.RGBA{R: 248, G: 250, B: 252, A: 1},
 		DragAndDrop: &options.DragAndDrop{
 			EnableFileDrop: true,

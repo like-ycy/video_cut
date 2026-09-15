@@ -18,8 +18,8 @@ export default function EmptyState({ onOpen, dragging }: Props) {
       className={`flex aspect-video w-full cursor-pointer flex-col items-center justify-center gap-3
         rounded-lg border-2 border-dashed transition-colors
         ${hover || dragging
-          ? 'border-brand-600 bg-brand-50'
-          : 'border-app-border bg-app-surface hover:border-brand-500'}`}
+          ? 'border-brand-600 bg-brand-50 dark:border-brand-400'
+          : 'border-app-border bg-app-surface hover:border-brand-500 dark:hover:border-brand-400'}`}
     >
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-app-subtle text-app-muted">
         <FilmIcon className="h-6 w-6" />
@@ -35,7 +35,7 @@ export default function EmptyState({ onOpen, dragging }: Props) {
           onOpen()
         }}
         className="flex items-center gap-2 rounded-md bg-brand-600 px-3.5 py-2 text-sm font-medium
-                   text-white hover:bg-brand-700 transition-colors"
+                   text-white hover:bg-brand-700 dark:hover:bg-brand-500 transition-colors"
       >
         <FolderIcon className="h-4 w-4" />
         打开视频
