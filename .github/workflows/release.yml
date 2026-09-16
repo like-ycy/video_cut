@@ -12,7 +12,7 @@ jobs:
   macos:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Validate release tag
         run: |
@@ -21,12 +21,12 @@ jobs:
             exit 1
           }
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -40,7 +40,7 @@ jobs:
           node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("wails.json","utf8"));p.info={...(p.info||{}),productVersion:process.env.GITHUB_REF_NAME.slice(1)};fs.writeFileSync("wails.json",JSON.stringify(p,null,2)+"\n");'
 
       - name: Build macOS app
-        run: go run github.com/wailsapp/wails/v2/cmd/wails@v2.15.0 build -clean -platform darwin/arm64 -ldflags "-X videocut/internal/version.Version=${GITHUB_REF_NAME}"
+        run: go run github.com/wailsapp/wails/v2/cmd/wails@v2.16.0 build -clean -platform darwin/arm64 -ldflags "-X videocut/internal/version.Version=${GITHUB_REF_NAME}"
 
       - name: Package macOS app
         run: |
@@ -49,7 +49,7 @@ jobs:
             build/bin/videocut.app \
             videocut.zip
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: macos-arm64
           path: videocut.zip
@@ -58,7 +58,7 @@ jobs:
   windows:
     runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Validate release tag
         shell: bash
@@ -68,12 +68,12 @@ jobs:
             exit 1
           }
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -87,13 +87,13 @@ jobs:
 
       - name: Build Windows executable
         shell: bash
-        run: go run github.com/wailsapp/wails/v2/cmd/wails@v2.15.0 build -clean -platform windows/amd64 -ldflags "-X videocut/internal/version.Version=${GITHUB_REF_NAME}"
+        run: go run github.com/wailsapp/wails/v2/cmd/wails@v2.16.0 build -clean -platform windows/amd64 -ldflags "-X videocut/internal/version.Version=${GITHUB_REF_NAME}"
 
       - name: Prepare Windows artifact
         shell: pwsh
         run: Copy-Item build/bin/videocut.exe videocut.exe
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows-amd64
           path: videocut.exe
@@ -103,7 +103,7 @@ jobs:
     needs: [macos, windows]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: release-assets
           merge-multiple: true
