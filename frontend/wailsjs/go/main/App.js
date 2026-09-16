@@ -50,6 +50,10 @@ export function GetPendingUpdate() {
   return window['go']['main']['App']['GetPendingUpdate']();
 }
 
+export function GetSystemAppearance() {
+  return window['go']['main']['App']['GetSystemAppearance']();
+}
+
 export function OpenPath(arg1) {
   return window['go']['main']['App']['OpenPath'](arg1);
 }

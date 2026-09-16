@@ -28,6 +28,8 @@ export function GetMediaInfo():Promise<video.MediaInfo>;
 
 export function GetPendingUpdate():Promise<updater.UpdateInfo>;
 
+export function GetSystemAppearance():Promise<string>;
+
 export function OpenPath(arg1:string):Promise<void>;
 
 export function OpenURL(arg1:string):Promise<void>;

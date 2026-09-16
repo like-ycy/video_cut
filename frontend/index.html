@@ -6,15 +6,16 @@
     <meta name="color-scheme" content="light dark"/>
     <title>videocut</title>
     <script>
-      // 首帧前应用主题，减少亮暗切换闪烁
+      // 首帧前先猜主题，减少闪烁；
+      // system 模式下 WKWebView 的 prefers-color-scheme 不可靠，
+      // 应用启动后会用原生 GetSystemAppearance 纠正。
       (function () {
         try {
           var pref = localStorage.getItem('videocut-theme') || 'system';
-          var isDark = pref === 'dark' || (
-            pref === 'system' &&
-            window.matchMedia &&
-            window.matchMedia('(prefers-color-scheme: dark)').matches
-          );
+          var isDark = pref === 'dark';
+          if (pref === 'system' && window.matchMedia) {
+            isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          }
           document.documentElement.classList.toggle('dark', isDark);
           document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
           var schemeMeta = document.querySelector('meta[name="color-scheme"]');

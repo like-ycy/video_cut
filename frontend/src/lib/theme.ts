@@ -1,3 +1,4 @@
+import { GetSystemAppearance } from '../../wailsjs/go/main/App'
 import { WindowSetBackgroundColour } from '../../wailsjs/runtime'
 
 /** 主题偏好：亮色 / 暗色 / 跟随系统。 */
@@ -28,7 +29,23 @@ export function getThemePreference(): ThemePreference {
   return 'system'
 }
 
-export function resolveTheme(preference: ThemePreference): ResolvedTheme {
+/**
+ * 解析系统外观。
+ * 优先原生侧（macOS WKWebView 的 prefers-color-scheme 不可靠，会误报 dark），
+ * 拿不到再回退 media query。
+ */
+export async function resolveSystemTheme(): Promise<ResolvedTheme> {
+  try {
+    const native = await GetSystemAppearance()
+    if (native === 'dark' || native === 'light') return native
+  } catch {
+    /* 回退 matchMedia */
+  }
+  return darkQuery()?.matches ? 'dark' : 'light'
+}
+
+/** 同步解析：显式 light/dark 直接返回；system 仅能用 media query 猜。 */
+export function resolveThemeSync(preference: ThemePreference): ResolvedTheme {
   if (preference === 'light' || preference === 'dark') return preference
   return darkQuery()?.matches ? 'dark' : 'light'
 }
@@ -72,7 +89,7 @@ export function cycleTheme(preference: ThemePreference): ThemePreference {
   return 'light'
 }
 
-/** 启动时立刻套用主题，减少白闪。main.tsx 也会调用一次。 */
+/** 启动时立刻套用主题，减少白闪。system 模式可能先猜错，随后由原生结果纠正。 */
 export function initThemeFromStorage() {
-  applyTheme(resolveTheme(getThemePreference()))
+  applyTheme(resolveThemeSync(getThemePreference()))
 }

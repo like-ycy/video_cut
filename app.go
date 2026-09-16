@@ -11,6 +11,7 @@ import (
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"videocut/internal/appearance"
 	"videocut/internal/export"
 	"videocut/internal/ffmpeg"
 	"videocut/internal/fsutil"
@@ -629,6 +630,12 @@ func (a *App) checkUpdateOnStartup() {
 // GetAppVersion 返回当前软件版本号。
 func (a *App) GetAppVersion() string {
 	return version.GetVersion()
+}
+
+// GetSystemAppearance 返回操作系统当前外观。
+// macOS 读原生 AppleInterfaceStyle；其他平台返回空字符串，由前端用 prefers-color-scheme。
+func (a *App) GetSystemAppearance() string {
+	return appearance.Get()
 }
 
 // CheckUpdate 手动触发检查更新。
