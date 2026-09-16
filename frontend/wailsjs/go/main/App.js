@@ -38,16 +38,16 @@ export function GetAppVersion() {
   return window['go']['main']['App']['GetAppVersion']();
 }
 
-export function GetPendingUpdate() {
-  return window['go']['main']['App']['GetPendingUpdate']();
-}
-
 export function GetEnv() {
   return window['go']['main']['App']['GetEnv']();
 }
 
 export function GetMediaInfo() {
   return window['go']['main']['App']['GetMediaInfo']();
+}
+
+export function GetPendingUpdate() {
+  return window['go']['main']['App']['GetPendingUpdate']();
 }
 
 export function OpenPath(arg1) {

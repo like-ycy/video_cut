@@ -1,14 +1,14 @@
 export namespace main {
-
+	
 	export class EnvInfo {
 	    ffmpeg: string;
 	    ffprobe: string;
 	    ok: boolean;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new EnvInfo(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.ffmpeg = source["ffmpeg"];
@@ -20,7 +20,7 @@ export namespace main {
 }
 
 export namespace updater {
-
+	
 	export class UpdateInfo {
 	    hasUpdate: boolean;
 	    currentVersion: string;
@@ -31,12 +31,13 @@ export namespace updater {
 	    downloadUrl: string;
 	    assetName: string;
 	    assetSize: number;
+	    digest?: string;
 	    platform: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new UpdateInfo(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.hasUpdate = source["hasUpdate"];
@@ -48,6 +49,7 @@ export namespace updater {
 	        this.downloadUrl = source["downloadUrl"];
 	        this.assetName = source["assetName"];
 	        this.assetSize = source["assetSize"];
+	        this.digest = source["digest"];
 	        this.platform = source["platform"];
 	    }
 	}
@@ -55,7 +57,7 @@ export namespace updater {
 }
 
 export namespace video {
-
+	
 	export class MediaInfo {
 	    path: string;
 	    name: string;
@@ -74,11 +76,11 @@ export namespace video {
 	    sizeBytes: number;
 	    needsProxy: boolean;
 	    canFastTrim: boolean;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new MediaInfo(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.path = source["path"];
@@ -102,3 +104,4 @@ export namespace video {
 	}
 
 }
+

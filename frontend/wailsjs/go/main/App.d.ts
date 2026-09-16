@@ -21,11 +21,12 @@ export function DownloadUpdate(arg1:boolean):Promise<void>;
 export function ExportVideo(arg1:string,arg2:number,arg3:number):Promise<string>;
 
 export function GetAppVersion():Promise<string>;
-export function GetPendingUpdate():Promise<updater.UpdateInfo | null>;
 
 export function GetEnv():Promise<main.EnvInfo>;
 
 export function GetMediaInfo():Promise<video.MediaInfo>;
+
+export function GetPendingUpdate():Promise<updater.UpdateInfo>;
 
 export function OpenPath(arg1:string):Promise<void>;
 
