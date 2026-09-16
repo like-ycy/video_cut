@@ -171,7 +171,7 @@ WebView 不能直接通过 `file://` 播放本地文件，因此应用启动时�
 ## 常见问题
 
 **打开视频时提示「未找到 ffmpeg 和 ffprobe」**
-FFmpeg 没有安装，或没加入系统 PATH。在终端执行 `which ffmpeg`（Windows 用 `where ffmpeg`）确认。
+FFmpeg 没有安装。在终端执行 `which ffmpeg`（Windows 用 `where ffmpeg`）确认。若已通过 Homebrew 安装，应用会自动尝试 `/opt/homebrew/bin` 等常见目录，无需再手动配置 PATH。
 
 **预览画面出不来，但可以裁剪**
 说明该视频的编码或容器 WebView 播不了，且预览代理也生成失败。可以直接输入时间码后导出，不影响结果。
