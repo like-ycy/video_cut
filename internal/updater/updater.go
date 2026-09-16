@@ -118,7 +118,7 @@ func (m *Manager) CheckUpdate() (*UpdateInfo, error) {
 		return nil, fmt.Errorf("解析 Release 信息失败: %w", err)
 	}
 
-	targetAsset := matchAsset(rel.Assets, runtime.GOOS)
+	targetAsset := matchAsset(rel.Assets, runtime.GOOS, runtime.GOARCH)
 
 	hasUpdate := version.Compare(rel.TagName, currentVer) > 0
 
@@ -129,7 +129,7 @@ func (m *Manager) CheckUpdate() (*UpdateInfo, error) {
 		ReleaseName:    rel.Name,
 		ReleaseNotes:   rel.Body,
 		ReleaseURL:     rel.HTMLURL,
-		Platform:       runtime.GOOS,
+		Platform:       runtime.GOOS + "/" + runtime.GOARCH,
 	}
 
 	if targetAsset != nil {
@@ -157,25 +157,13 @@ func (m *Manager) LatestInfo() *UpdateInfo {
 	return &info
 }
 
-// matchAsset 匹配当前系统平台对应的资产。
-func matchAsset(assets []ReleaseAsset, goos string) *ReleaseAsset {
+// matchAsset 匹配当前系统架构对应的更新包。
+// 约定命名：videocut_<version>_<goos>_<goarch>.tar.gz
+func matchAsset(assets []ReleaseAsset, goos, goarch string) *ReleaseAsset {
+	suffix := "_" + goos + "_" + goarch + ".tar.gz"
 	for i := range assets {
-		name := strings.ToLower(assets[i].Name)
-		switch goos {
-		case "darwin":
-			// macOS 匹配 .zip
-			if strings.HasSuffix(name, ".zip") {
-				return &assets[i]
-			}
-		case "windows":
-			// Windows 匹配 .exe
-			if strings.HasSuffix(name, ".exe") {
-				return &assets[i]
-			}
-		default:
-			if strings.Contains(name, goos) {
-				return &assets[i]
-			}
+		if strings.HasSuffix(strings.ToLower(assets[i].Name), suffix) {
+			return &assets[i]
 		}
 	}
 	return nil

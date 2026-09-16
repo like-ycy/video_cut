@@ -10,6 +10,12 @@ permissions:
 
 jobs:
   macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goarch: arm64
+          - goarch: amd64
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v7
@@ -40,19 +46,23 @@ jobs:
           node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("wails.json","utf8"));p.info={...(p.info||{}),productVersion:process.env.GITHUB_REF_NAME.slice(1)};fs.writeFileSync("wails.json",JSON.stringify(p,null,2)+"\n");'
 
       - name: Build macOS app
-        run: go run github.com/wailsapp/wails/v2/cmd/wails@v2.16.0 build -clean -platform darwin/arm64 -ldflags "-X videocut/internal/version.Version=${GITHUB_REF_NAME}"
+        run: |
+          go run github.com/wailsapp/wails/v2/cmd/wails@v2.16.0 build \
+            -clean \
+            -platform "darwin/${{ matrix.goarch }}" \
+            -ldflags "-X videocut/internal/version.Version=${GITHUB_REF_NAME}"
 
       - name: Package macOS app
         run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PKG="videocut_${VERSION}_darwin_${{ matrix.goarch }}.tar.gz"
           test -d build/bin/videocut.app
-          ditto -c -k --sequesterRsrc --keepParent \
-            build/bin/videocut.app \
-            videocut.zip
+          tar -czf "$PKG" -C build/bin videocut.app
 
       - uses: actions/upload-artifact@v7
         with:
-          name: macos-arm64
-          path: videocut.zip
+          name: macos-${{ matrix.goarch }}
+          path: videocut_*.tar.gz
           if-no-files-found: error
 
   windows:
@@ -87,16 +97,25 @@ jobs:
 
       - name: Build Windows executable
         shell: bash
-        run: go run github.com/wailsapp/wails/v2/cmd/wails@v2.16.0 build -clean -platform windows/amd64 -ldflags "-X videocut/internal/version.Version=${GITHUB_REF_NAME}"
+        # Wails 2.16 的 -o 不会自动补 .exe，因此这里不使用 -o，保持默认输出 build/bin/videocut.exe
+        run: |
+          go run github.com/wailsapp/wails/v2/cmd/wails@v2.16.0 build \
+            -clean \
+            -platform windows/amd64 \
+            -ldflags "-X videocut/internal/version.Version=${GITHUB_REF_NAME}"
 
-      - name: Prepare Windows artifact
-        shell: pwsh
-        run: Copy-Item build/bin/videocut.exe videocut.exe
+      - name: Package Windows executable
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PKG="videocut_${VERSION}_windows_amd64.tar.gz"
+          test -f build/bin/videocut.exe
+          tar -czf "$PKG" -C build/bin videocut.exe
 
       - uses: actions/upload-artifact@v7
         with:
           name: windows-amd64
-          path: videocut.exe
+          path: videocut_*.tar.gz
           if-no-files-found: error
 
   release:
@@ -114,8 +133,11 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           shopt -s nullglob
-          assets=(release-assets/*)
-          test "${#assets[@]}" -eq 2
+          assets=(release-assets/*.tar.gz)
+          test "${#assets[@]}" -eq 3
+          for asset in "${assets[@]}"; do
+            basename "$asset"
+          done
 
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber

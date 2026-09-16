@@ -8,14 +8,15 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 )
 
-// ApplyAndRestart 在 Windows 上替换当前 exe 并重启。
+// ApplyAndRestart 在 Windows 上解压 tar.gz 中的 exe，替换当前程序并重启。
 // 说明：Windows 下运行中的 exe 拥有独占文件锁，主进程自身无法覆盖自身。
 // 此处启动一个独立的后台批处理，等待主程序退出释放文件锁后，完成文件覆盖并重新拉起。
 func (m *Manager) ApplyAndRestart() error {
-	newExePath, tempDir, err := m.GetDownloadedFile()
+	pkgPath, tempDir, err := m.GetDownloadedFile()
 	if err != nil {
 		return err
 	}
@@ -27,6 +28,20 @@ func (m *Manager) ApplyAndRestart() error {
 	resolved, err := filepath.EvalSymlinks(currentExePath)
 	if err == nil {
 		currentExePath = resolved
+	}
+
+	extractedDir := filepath.Join(tempDir, "extracted")
+	if err := os.MkdirAll(extractedDir, 0o755); err != nil {
+		return fmt.Errorf("创建解压目录失败: %w", err)
+	}
+
+	if err := extractTarGz(pkgPath, extractedDir); err != nil {
+		return fmt.Errorf("解压更新包失败: %w", err)
+	}
+
+	newExePath, err := findExecutableInDir(extractedDir)
+	if err != nil {
+		return fmt.Errorf("未在更新包中找到可执行文件: %w", err)
 	}
 
 	batPath := filepath.Join(tempDir, "update.bat")
@@ -91,4 +106,36 @@ if exist "%CLEAN_DIR%" (
 	m.markApplyPending()
 
 	return nil
+}
+
+// findExecutableInDir 查找更新包解压后的 Windows 可执行文件。
+func findExecutableInDir(dir string) (string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return "", err
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".exe") {
+			return filepath.Join(dir, entry.Name()), nil
+		}
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		subDir := filepath.Join(dir, entry.Name())
+		subEntries, sErr := os.ReadDir(subDir)
+		if sErr != nil {
+			continue
+		}
+		for _, sub := range subEntries {
+			if !sub.IsDir() && strings.HasSuffix(strings.ToLower(sub.Name()), ".exe") {
+				return filepath.Join(subDir, sub.Name()), nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("未找到 .exe 可执行文件")
 }

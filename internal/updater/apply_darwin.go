@@ -3,9 +3,7 @@
 package updater
 
 import (
-	"archive/zip"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,9 +12,9 @@ import (
 	"syscall"
 )
 
-// ApplyAndRestart 在 macOS 上解压 videocut.zip，替换当前 .app 应用程序包并重启。
+// ApplyAndRestart 在 macOS 上解压 videocut_<version>_darwin_<arch>.tar.gz，替换当前 .app 并重启。
 func (m *Manager) ApplyAndRestart() error {
-	zipPath, tempDir, err := m.GetDownloadedFile()
+	pkgPath, tempDir, err := m.GetDownloadedFile()
 	if err != nil {
 		return err
 	}
@@ -27,13 +25,13 @@ func (m *Manager) ApplyAndRestart() error {
 		return fmt.Errorf("定位当前应用目录失败: %w", err)
 	}
 
-	// 2. 解压 zip 到临时目录中的 extracted 子目录
+	// 2. 解压 tar.gz 到临时目录中的 extracted 子目录
 	extractedDir := filepath.Join(tempDir, "extracted")
 	if err := os.MkdirAll(extractedDir, 0o755); err != nil {
 		return fmt.Errorf("创建解压目录失败: %w", err)
 	}
 
-	if err := extractZip(zipPath, extractedDir); err != nil {
+	if err := extractTarGz(pkgPath, extractedDir); err != nil {
 		return fmt.Errorf("解压更新包失败: %w", err)
 	}
 
@@ -156,63 +154,4 @@ func findAppBundleInDir(dir string) (string, error) {
 	}
 
 	return "", fmt.Errorf("未找到 .app 目录")
-}
-
-// extractZip 解压 zip 文件。优先使用 macOS 自带 ditto 保留资源分支与权限，失败时回退到纯 Go 解压。
-func extractZip(zipPath, destDir string) error {
-	// 使用 ditto -x -k zipPath destDir
-	if dittoPath, err := exec.LookPath("ditto"); err == nil {
-		cmd := exec.Command(dittoPath, "-x", "-k", zipPath, destDir)
-		if out, err := cmd.CombinedOutput(); err == nil {
-			return nil
-		} else {
-			_ = out
-		}
-	}
-
-	// 回退：标准 Go zip 解压
-	r, err := zip.OpenReader(zipPath)
-	if err != nil {
-		return err
-	}
-	defer r.Close()
-
-	for _, f := range r.File {
-		target := filepath.Join(destDir, f.Name)
-		// 防止 Zip Slip 漏洞
-		if !strings.HasPrefix(filepath.Clean(target), filepath.Clean(destDir)+string(filepath.Separator)) {
-			continue
-		}
-
-		if f.FileInfo().IsDir() {
-			if err := os.MkdirAll(target, f.Mode()); err != nil {
-				return err
-			}
-			continue
-		}
-
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-			return err
-		}
-
-		rc, err := f.Open()
-		if err != nil {
-			return err
-		}
-
-		out, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, f.Mode())
-		if err != nil {
-			rc.Close()
-			return err
-		}
-
-		_, cpErr := io.Copy(out, rc)
-		rc.Close()
-		out.Close()
-		if cpErr != nil {
-			return cpErr
-		}
-	}
-
-	return nil
 }
