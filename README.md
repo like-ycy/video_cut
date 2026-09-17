@@ -2,7 +2,7 @@
 
 一个本地运行的桌面视频裁剪工具。基于 [Wails v2](https://wails.io/)（Go + WebView），界面用 React 编写，媒体处理全部交给本机已安装的 FFmpeg。
 
-打开视频 → 拖动或输入时间码选定片段 → 选择导出模式 → 保存。整个过程不联网、不上传，原始文件永不被覆盖。
+打开视频 → 拖动或输入时间码选定片段 → 选择导出模式 → 保存。整个过程不联网裁剪、不上传，原始文件永不被覆盖。
 
 ---
 
@@ -16,6 +16,8 @@
 - **安全落盘**：先写同目录临时文件，校验时长与体积后再原子改名；绝不覆盖源文件，目标已存在时自动追加 `(1)`、`(2)`
 - **进度与耗时预估**：精准模式实时显示百分比和预计剩余时间，可随时取消
 - **导出保护**：导出过程中关闭窗口会二次确认，避免任务被意外中断
+- **亮暗主题**：支持亮色 / 暗色 / 跟随系统三种模式，偏好持久化在本地
+- **应用内更新**：启动后自动检查 GitHub Releases 新版本，可一键下载、校验并替换当前应用后重启
 
 ---
 
@@ -23,9 +25,9 @@
 
 | 层 | 选型 |
 | --- | --- |
-| 桌面框架 | Wails v2.15（Go 1.25） |
-| 前端 | React 19 + TypeScript + Vite 7 |
-| 样式 | Tailwind CSS 3 |
+| 桌面框架 | Wails v2.16（Go 1.26） |
+| 前端 | React 19 + TypeScript + Vite 8 |
+| 样式 | Tailwind CSS 4 |
 | 媒体处理 | 系统 PATH 中的 `ffmpeg` / `ffprobe` |
 | 平台支持 | macOS、Windows、Linux |
 
@@ -35,7 +37,7 @@
 
 | 依赖 | 说明 |
 | --- | --- |
-| Go | 1.25 及以上（`go version` 查看） |
+| Go | 1.26 及以上（`go version` 查看） |
 | Node.js | 18 及以上，用于构建前端 |
 | FFmpeg | **必需**。且 `ffmpeg`、`ffprobe` 两个命令都必须能从系统 PATH 中找到 |
 | Wails CLI | 可选，用于 `wails dev` / `wails build` |
@@ -89,6 +91,12 @@ wails build -nsis                        # Windows 额外生成 NSIS 安装包
 wails build -clean                       # 清理构建缓存后重新构建
 ```
 
+本地开发时可用 ldflags 注入版本号，便于与更新逻辑联调：
+
+```bash
+wails build -ldflags "-X videocut/internal/version.Version=0.1.12"
+```
+
 ---
 
 ## 项目结构
@@ -101,18 +109,24 @@ video_cut/
 ├── frontend/
 │   ├── src/
 │   │   ├── App.tsx          # 主界面状态编排、后端事件订阅
-│   │   ├── components/      # 播放器、缩略图时间轴、时间码行、顶栏/底栏、导出浮层
-│   │   ├── lib/timecode.ts  # 时间码解析与格式化
+│   │   ├── components/      # 播放器、缩略图时间轴、时间码行、顶栏/底栏、导出/更新浮层
+│   │   ├── hooks/           # useTheme 等前端 hooks
+│   │   ├── lib/             # 时间码解析格式化、主题偏好
 │   │   └── types.ts         # 与 Go 结构体对应的前端类型
 │   └── wailsjs/             # Wails 自动生成的 Go 方法绑定（勿手动编辑）
 ├── internal/
+│   ├── appearance/          # 读取系统外观（macOS 原生 AppleInterfaceStyle）
+│   ├── export/              # 两种模式的裁剪导出
 │   ├── ffmpeg/              # ffmpeg / ffprobe 可用性检查与进程执行
-│   ├── video/               # ffprobe 探测，解析媒体信息并判断能否直接播放
+│   ├── fsutil/              # 临时文件、原子落盘、跨平台「在文件夹中显示」
 │   ├── preview/             # 本地媒体 HTTP 服务 + 预览代理生成
 │   ├── thumbnail/           # 缩略图批量生成与取消
-│   ├── export/              # 两种模式的裁剪导出
-│   └── fsutil/              # 临时文件、原子落盘、跨平台「在文件夹中显示」
-└── build/                   # 打包资源（详见 build/README.md）
+│   ├── updater/             # GitHub Releases 检查、下载、校验、替换重启
+│   ├── version/             # 版本号与语义化比较（CI 经 ldflags 注入）
+│   └── video/               # ffprobe 探测，解析媒体信息并判断能否直接播放
+├── tests/                   # Go 侧回归 / 冒烟测试
+├── samples/                 # 本地联调用的示例视频
+└── .github/workflows/       # 打 tag 自动发布到 GitHub Releases
 ```
 
 ---
@@ -155,6 +169,7 @@ WebView 不能直接通过 `file://` 播放本地文件，因此应用启动时�
 | `preview:ready` | 预览代理生成完成（或失败） |
 | `thumb:progress` / `thumb:done` | 缩略图生成进度与结果 |
 | `export:start` / `export:progress` / `export:done` / `export:failed` | 导出生命周期 |
+| `update:available` / `update:progress` / `update:done` / `update:failed` | 应用更新检查与下载 |
 
 ### 导出流程
 
@@ -165,6 +180,32 @@ WebView 不能直接通过 `file://` 播放本地文件，因此应用启动时�
         → 原子改名落盘（目标已存在则不覆盖，直接报错）
         → 失败或取消时清理临时文件
 ```
+
+### 主题
+
+前端在 `light` / `dark` / `system` 三者间切换，偏好写入 `localStorage`。`system` 模式下优先读原生 `GetSystemAppearance`（macOS 读 `AppleInterfaceStyle`，避免 WKWebView 的 `prefers-color-scheme` 误判），其他平台回退 `matchMedia`。
+
+### 应用更新
+
+1. 启动后约 2 秒异步请求 GitHub Releases `latest`，与 `internal/version` 中的当前版本比较
+2. 仅当版本更高 **且** 存在当前平台资产（`videocut_<version>_<goos>_<goarch>.tar.gz`）时提示可更新
+3. 下载可选国内镜像加速；完成后按 Release 资产的 SHA-256 digest 校验
+4. 安装时后台脚本等待当前进程退出后替换应用本体（macOS 替换 `.app`，Windows 替换可执行文件），再重新拉起
+5. 导出进行中禁止触发安装，避免打断任务
+
+本地若用 `wails dev`，应用包通常不是标准安装形态，更新流程仅适合正式构建产物联调。
+
+---
+
+## 发布流程
+
+推送符合 `vMAJOR.MINOR.PATCH` 的 tag 会触发 `.github/workflows/release.yml`：
+
+1. 分别在 macOS（arm64 / amd64）与 Windows（amd64）上构建，版本号经 `-ldflags` 注入
+2. 打包为 `videocut_<version>_<os>_<arch>.tar.gz`
+3. 生成 `SHA256SUMS.txt` 并一并上传到 GitHub Release
+
+应用内更新依赖这一套命名约定；若手动改资产名，需同步调整 `internal/updater` 的匹配逻辑。
 
 ---
 
@@ -185,6 +226,12 @@ MP4 / MOV 对大多数字幕格式支持有限。需要保留字幕请选择 MKV
 **会不会覆盖原文件？**
 不会。代码层面有多重保护：源文件被列为禁止覆盖目标，目标路径已存在时自动追加序号，最终落盘用的是「不存在才创建」的原子操作。
 
+**检查更新失败或一直转圈**
+检查网络能否访问 `api.github.com` 与 `github.com`；下载阶段可勾选镜像加速。若当前平台在该 Release 中没有对应 tar.gz，应用会提示未找到适用于本平台的更新包，可前往发布页手动下载。
+
+**「跟随系统」主题不切换**
+macOS 依赖原生外观读取；若从 Dock / Finder 启动后系统外观变了，前端会定时轮询纠正。也可在顶栏主题按钮上手动切换确认。
+
 ---
 
 ## 开发
@@ -192,7 +239,7 @@ MP4 / MOV 对大多数字幕格式支持有限。需要保留字幕请选择 MKV
 ```bash
 go build ./...      # 编译检查
 go vet ./...        # 静态检查
-go test ./...       # 运行测试
+go test ./...       # 运行测试（含 tests/ 下的回归与冒烟用例）
 ```
 
 前端单独调试（不启动 Go 后端，绑定方法不可用）：
