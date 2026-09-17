@@ -6,14 +6,14 @@ import (
 )
 
 // Version 是当前软件的编译版本号。
-// 在 CI 编译时可通过 -ldflags "-X videocut/internal/version.Version=0.1.12" 动态注入。
-var Version = "0.1.12"
+// 在 CI 编译时可通过 -ldflags "-X videocut/internal/version.Version=0.1.13" 动态注入。
+var Version = "0.1.13"
 
 // GetVersion 返回当前版本号字符串（带 v 前缀，便于展示）。
 func GetVersion() string {
 	v := strings.TrimSpace(Version)
 	if v == "" {
-		v = "0.1.12"
+		v = "0.1.13"
 	}
 	if !strings.HasPrefix(v, "v") {
 		return "v" + v
