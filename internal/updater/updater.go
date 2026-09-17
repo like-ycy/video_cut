@@ -120,7 +120,9 @@ func (m *Manager) CheckUpdate() (*UpdateInfo, error) {
 
 	targetAsset := matchAsset(rel.Assets, runtime.GOOS, runtime.GOARCH)
 
-	hasUpdate := version.Compare(rel.TagName, currentVer) > 0
+	// 仅当版本更高且存在当前平台更新包时才算有可安装更新，
+	// 避免「有新版但匹配不到资产」时误提示后在下载阶段失败。
+	hasUpdate := version.Compare(rel.TagName, currentVer) > 0 && targetAsset != nil
 
 	info := &UpdateInfo{
 		HasUpdate:      hasUpdate,
@@ -176,9 +178,13 @@ func (m *Manager) StartDownload(useProxy bool, onProgress func(DownloadProgress)
 		m.mu.Unlock()
 		return fmt.Errorf("已有正在进行的更新下载")
 	}
-	if m.latestInfo == nil || m.latestInfo.DownloadURL == "" {
+	if m.latestInfo == nil {
 		m.mu.Unlock()
-		return fmt.Errorf("未找到有效的新版本下载地址")
+		return fmt.Errorf("尚未检查更新")
+	}
+	if m.latestInfo.DownloadURL == "" {
+		m.mu.Unlock()
+		return fmt.Errorf("未找到适用于 %s 的更新包，请前往发布页手动下载", m.latestInfo.Platform)
 	}
 
 	downloadURL := m.latestInfo.DownloadURL
