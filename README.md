@@ -188,7 +188,7 @@ WebView 不能直接通过 `file://` 播放本地文件，因此应用启动时�
 ### 应用更新
 
 1. 启动后约 2 秒异步请求 GitHub Releases `latest`，与 `internal/version` 中的当前版本比较
-2. 仅当版本更高 **且** 存在当前平台资产（`videocut_<version>_<goos>_<goarch>.tar.gz`）时提示可更新
+2. 仅当版本更高 **且** 存在当前平台资产（优先 `videocut_<version>_<goos>_<goarch>.zip`，兼容旧 `.tar.gz`）时提示可更新
 3. 下载可选国内镜像加速；完成后按 Release 资产的 SHA-256 digest 校验
 4. 安装时后台脚本等待当前进程退出后替换应用本体（macOS 替换 `.app`，Windows 替换可执行文件），再重新拉起
 5. 导出进行中禁止触发安装，避免打断任务
@@ -202,10 +202,10 @@ WebView 不能直接通过 `file://` 播放本地文件，因此应用启动时�
 推送符合 `vMAJOR.MINOR.PATCH` 的 tag 会触发 `.github/workflows/release.yml`：
 
 1. 分别在 macOS（arm64 / amd64）与 Windows（amd64）上构建，版本号经 `-ldflags` 注入
-2. 打包为 `videocut_<version>_<os>_<arch>.tar.gz`
+2. 打包为 `videocut_<version>_<os>_<arch>.zip`（系统解压一次直接得到 `.app` / `.exe`）
 3. 生成 `SHA256SUMS.txt` 并一并上传到 GitHub Release
 
-应用内更新依赖这一套命名约定；若手动改资产名，需同步调整 `internal/updater` 的匹配逻辑。
+应用内更新优先匹配 `.zip`，并兼容历史 `.tar.gz` 资产；若手动改资产名，需同步调整 `internal/updater` 的匹配逻辑。
 
 ---
 
@@ -227,7 +227,7 @@ MP4 / MOV 对大多数字幕格式支持有限。需要保留字幕请选择 MKV
 不会。代码层面有多重保护：源文件被列为禁止覆盖目标，目标路径已存在时自动追加序号，最终落盘用的是「不存在才创建」的原子操作。
 
 **检查更新失败或一直转圈**
-检查网络能否访问 `api.github.com` 与 `github.com`；下载阶段可勾选镜像加速。若当前平台在该 Release 中没有对应 tar.gz，应用会提示未找到适用于本平台的更新包，可前往发布页手动下载。
+检查网络能否访问 `api.github.com` 与 `github.com`；下载阶段可勾选镜像加速。若当前平台在该 Release 中没有对应 zip/tar.gz，应用会提示未找到适用于本平台的更新包，可前往发布页手动下载。
 
 **「跟随系统」主题不切换**
 macOS 依赖原生外观读取；若从 Dock / Finder 启动后系统外观变了，前端会定时轮询纠正。也可在顶栏主题按钮上手动切换确认。

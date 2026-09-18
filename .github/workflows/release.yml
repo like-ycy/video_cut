@@ -55,14 +55,16 @@ jobs:
       - name: Package macOS app
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          PKG="videocut_${VERSION}_darwin_${{ matrix.goarch }}.tar.gz"
+          PKG="$PWD/videocut_${VERSION}_darwin_${{ matrix.goarch }}.zip"
           test -d build/bin/videocut.app
-          tar -czf "$PKG" -C build/bin videocut.app
+          # -y 保留 .app 内符号链接，避免系统解压后损坏应用包
+          (cd build/bin && zip -qyr "$PKG" videocut.app)
+          test -f "$PKG"
 
       - uses: actions/upload-artifact@v7
         with:
           name: macos-${{ matrix.goarch }}
-          path: videocut_*.tar.gz
+          path: videocut_*.zip
           if-no-files-found: error
 
   windows:
@@ -105,17 +107,36 @@ jobs:
             -ldflags "-X videocut/internal/version.Version=${GITHUB_REF_NAME}"
 
       - name: Package Windows executable
-        shell: bash
+        # 在 exe 所在目录打包，保证 zip 根目录就是 videocut.exe，
+        # 避免 Compress-Archive 写入 build/bin/... 导致更新器两层内找不到文件。
+        shell: pwsh
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          PKG="videocut_${VERSION}_windows_amd64.tar.gz"
-          test -f build/bin/videocut.exe
-          tar -czf "$PKG" -C build/bin videocut.exe
+          $VERSION = $env:GITHUB_REF_NAME.Substring(1)
+          $PKG = Join-Path $PWD "videocut_${VERSION}_windows_amd64.zip"
+          if (-not (Test-Path "build/bin/videocut.exe")) { throw "missing videocut.exe" }
+          Push-Location "build/bin"
+          try {
+            Compress-Archive -Path "videocut.exe" -DestinationPath $PKG -Force
+          } finally {
+            Pop-Location
+          }
+          if (-not (Test-Path $PKG)) { throw "failed to create $PKG" }
+          # 校验 zip 根目录条目
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = [System.IO.Compression.ZipFile]::OpenRead($PKG)
+          try {
+            $names = @($zip.Entries | ForEach-Object { $_.FullName -replace '\\','/' })
+            if ($names -notcontains "videocut.exe") {
+              throw "zip root missing videocut.exe; entries: $($names -join ', ')"
+            }
+          } finally {
+            $zip.Dispose()
+          }
 
       - uses: actions/upload-artifact@v7
         with:
           name: windows-amd64
-          path: videocut_*.tar.gz
+          path: videocut_*.zip
           if-no-files-found: error
 
   release:
@@ -130,11 +151,11 @@ jobs:
       - name: Generate SHA256SUMS
         run: |
           shopt -s nullglob
-          packages=(release-assets/*.tar.gz)
+          packages=(release-assets/*.zip)
           test "${#packages[@]}" -eq 3
           (
             cd release-assets
-            sha256sum *.tar.gz > SHA256SUMS.txt
+            sha256sum *.zip > SHA256SUMS.txt
           )
           echo "SHA256SUMS:"
           cat release-assets/SHA256SUMS.txt
@@ -145,7 +166,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           shopt -s nullglob
-          assets=(release-assets/*.tar.gz release-assets/SHA256SUMS.txt)
+          assets=(release-assets/*.zip release-assets/SHA256SUMS.txt)
           test "${#assets[@]}" -eq 4
           for asset in "${assets[@]}"; do
             basename "$asset"

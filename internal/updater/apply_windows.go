@@ -12,7 +12,7 @@ import (
 	"syscall"
 )
 
-// ApplyAndRestart 在 Windows 上解压 tar.gz 中的 exe，替换当前程序并重启。
+// ApplyAndRestart 在 Windows 上解压更新包中的 exe，替换当前程序并重启。
 // 说明：Windows 下运行中的 exe 拥有独占文件锁，主进程自身无法覆盖自身。
 // 此处启动一个独立的后台批处理，等待主程序退出释放文件锁后，完成文件覆盖并重新拉起。
 func (m *Manager) ApplyAndRestart() error {
@@ -30,12 +30,9 @@ func (m *Manager) ApplyAndRestart() error {
 		currentExePath = resolved
 	}
 
+	// extractUpdatePackage 会确保目标目录存在
 	extractedDir := filepath.Join(tempDir, "extracted")
-	if err := os.MkdirAll(extractedDir, 0o755); err != nil {
-		return fmt.Errorf("创建解压目录失败: %w", err)
-	}
-
-	if err := extractTarGz(pkgPath, extractedDir); err != nil {
+	if err := extractUpdatePackage(pkgPath, extractedDir); err != nil {
 		return fmt.Errorf("解压更新包失败: %w", err)
 	}
 

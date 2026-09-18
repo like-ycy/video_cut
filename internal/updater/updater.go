@@ -160,15 +160,20 @@ func (m *Manager) LatestInfo() *UpdateInfo {
 }
 
 // matchAsset 匹配当前系统架构对应的更新包。
-// 约定命名：videocut_<version>_<goos>_<goarch>.tar.gz
+// 约定命名：videocut_<version>_<goos>_<goarch>.zip（优先）或 .tar.gz（兼容旧 Release）。
 func matchAsset(assets []ReleaseAsset, goos, goarch string) *ReleaseAsset {
-	suffix := "_" + goos + "_" + goarch + ".tar.gz"
+	prefix := "_" + goos + "_" + goarch
+	var legacy *ReleaseAsset
 	for i := range assets {
-		if strings.HasSuffix(strings.ToLower(assets[i].Name), suffix) {
+		name := strings.ToLower(assets[i].Name)
+		if strings.HasSuffix(name, prefix+".zip") {
 			return &assets[i]
 		}
+		if strings.HasSuffix(name, prefix+".tar.gz") && legacy == nil {
+			legacy = &assets[i]
+		}
 	}
-	return nil
+	return legacy
 }
 
 // StartDownload 开始下载更新包，通过回调通知进度。
