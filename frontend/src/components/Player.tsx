@@ -1,6 +1,7 @@
+import { Button } from '@/components/ui/button'
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { formatTimecode } from '../lib/timecode'
-import { PauseIcon, PlayIcon } from './icons'
+import { Pause, Play } from 'lucide-react'
 
 interface Props {
   src: string
@@ -73,9 +74,9 @@ export default function Player({ src, duration, preparing, videoRef, onTimeChang
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="relative w-full aspect-video bg-slate-900 rounded-lg overflow-hidden">
+      <div className="relative w-full aspect-video bg-media rounded-lg overflow-hidden">
         {preparing && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-900/85 text-sm text-slate-200">
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-media/85 text-sm text-on-media">
             <span className="flex items-center gap-2">
               <Spinner />
               正在准备预览…
@@ -84,7 +85,7 @@ export default function Player({ src, duration, preparing, videoRef, onTimeChang
         )}
 
         {failed && !preparing && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-900/85 px-6 text-center text-sm text-slate-200">
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-media/85 px-6 text-center text-sm text-on-media">
             该视频无法直接预览，但仍可裁剪导出
           </div>
         )}
@@ -107,19 +108,18 @@ export default function Player({ src, duration, preparing, videoRef, onTimeChang
 
       {/* 播放控制条 */}
       <div className="flex items-center gap-3">
-        <button
+        <Button variant="secondary" size="icon"
           type="button"
           onClick={toggle}
           disabled={!src || preparing}
-          className="flex h-8 w-8 items-center justify-center rounded-md border border-app-border
-                     bg-app-surface text-app-text hover:bg-app-subtle
-                     disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center justify-center"
           title={playing ? '暂停' : '播放'}
+          aria-label={playing ? '暂停' : '播放'}
         >
-          {playing ? <PauseIcon className="w-4 h-4" /> : <PlayIcon className="w-4 h-4" />}
-        </button>
+          {playing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+        </Button>
 
-        <span className="w-[92px] shrink-0 font-mono text-xs text-app-text">
+        <span className="w-[92px] shrink-0 font-mono text-xs text-foreground">
           {formatTimecode(current)}
         </span>
 
@@ -129,21 +129,21 @@ export default function Player({ src, duration, preparing, videoRef, onTimeChang
           onPointerMove={onBarPointerMove}
           onPointerUp={onBarPointerUp}
           onPointerCancel={onBarPointerUp}
-          className="group relative h-2.5 flex-1 cursor-pointer touch-none select-none rounded-full bg-slate-200 dark:bg-slate-700"
+          className="group relative h-2.5 flex-1 cursor-pointer touch-none select-none rounded-full bg-surface-3 "
           title="拖动或点击跳转到指定位置"
         >
           <div
-            className="absolute inset-y-0 left-0 rounded-full bg-brand-600 dark:bg-brand-400"
+            className="absolute inset-y-0 left-0 rounded-full bg-primary "
             style={{ width: `${progress}%` }}
           />
           <div
             className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full
-                       bg-brand-600 dark:bg-brand-400 opacity-0 transition-opacity group-hover:opacity-100"
+                       bg-primary opacity-0 transition-opacity group-hover:opacity-100"
             style={{ left: `${progress}%` }}
           />
         </div>
 
-        <span className="w-[92px] shrink-0 text-right font-mono text-xs text-app-muted">
+        <span className="w-[92px] shrink-0 text-right font-mono text-xs text-muted">
           {formatTimecode(duration)}
         </span>
       </div>

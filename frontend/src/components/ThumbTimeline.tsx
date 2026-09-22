@@ -128,7 +128,7 @@ export default function ThumbTimeline({
         onPointerMove={moveScrub}
         onPointerUp={endScrub}
         onPointerCancel={endScrub}
-        className="relative overflow-hidden rounded-md border border-app-border bg-slate-100 dark:bg-slate-800 touch-none"
+        className="relative overflow-hidden rounded-md border border-border bg-surface-2 touch-none"
         style={{ height: TRACK_HEIGHT }}
       >
         {/* 缩略图 */}
@@ -150,27 +150,27 @@ export default function ThumbTimeline({
 
         {/* 加载骨架：固定尺寸，不引起布局跳动 */}
         {loading && (
-          <div className="absolute inset-0 animate-pulse bg-slate-200 dark:bg-slate-700" />
+          <div className="absolute inset-0 animate-pulse bg-surface-3 " />
         )}
         {!loading && items.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center text-xs text-slate-400 dark:text-slate-500">
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-muted ">
             缩略图不可用，仍可通过时间码裁剪
           </div>
         )}
 
         {/* 未保留区域压暗 */}
         <div
-          className="pointer-events-none absolute inset-y-0 left-0 bg-slate-900/65"
+          className="pointer-events-none absolute inset-y-0 left-0 bg-media/65"
           style={{ width: startX }}
         />
         <div
-          className="pointer-events-none absolute inset-y-0 right-0 bg-slate-900/65"
+          className="pointer-events-none absolute inset-y-0 right-0 bg-media/65"
           style={{ width: Math.max(0, width - endX) }}
         />
 
         {/* 保留区高亮边框 */}
         <div
-          className="pointer-events-none absolute inset-y-0 border-y-2 border-brand-500"
+          className="pointer-events-none absolute inset-y-0 border-y-2 border-primary"
           style={{ left: startX, width: Math.max(0, endX - startX) }}
         />
 
@@ -208,7 +208,7 @@ export default function ThumbTimeline({
         {ticks.map((t) => (
           <span
             key={t}
-            className="absolute -translate-x-1/2 font-mono text-[10px] text-app-muted"
+            className="absolute -translate-x-1/2 font-mono text-[10px] text-muted"
             style={{ left: ratio(t) }}
           >
             {formatTimecode(t)}
@@ -250,7 +250,7 @@ function Handle({
     >
       <div
         className={`h-full w-[6px] rounded-sm shadow-sm transition-colors
-          ${active ? 'bg-brand-700 dark:bg-brand-400' : 'bg-brand-600 dark:bg-brand-500'}`}
+          ${active ? 'bg-primary-hover ' : 'bg-primary '}`}
       />
       <div className="pointer-events-none absolute h-3.5 w-[2px] rounded-full bg-white/90" />
     </div>

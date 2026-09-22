@@ -8,10 +8,10 @@ export type ResolvedTheme = 'light' | 'dark'
 
 const STORAGE_KEY = 'videocut-theme'
 
-/** 与 style.css 中 --color-app-bg 一致，避免原生窗口闪白/闪黑。 */
+/** 与 style.css 中 --color-background 一致，避免原生窗口闪白/闪黑。 */
 const NATIVE_BG = {
-  light: [248, 250, 252] as const,
-  dark: [15, 23, 42] as const,
+  light: [247, 248, 250] as const,
+  dark: [11, 13, 16] as const,
 }
 
 const darkQuery = (): MediaQueryList | null =>

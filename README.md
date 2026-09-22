@@ -28,6 +28,7 @@
 | 桌面框架 | Wails v2.16（Go 1.26） |
 | 前端 | React 19 + TypeScript + Vite 8 |
 | 样式 | Tailwind CSS 4 |
+| UI 组件 | shadcn/ui 源码 + Radix primitives + lucide-react |
 | 媒体处理 | 系统 PATH 中的 `ffmpeg` / `ffprobe` |
 | 平台支持 | macOS、Windows、Linux |
 

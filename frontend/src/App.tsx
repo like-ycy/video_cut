@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTheme } from './hooks/useTheme'
 import BottomBar from './components/BottomBar'
@@ -9,7 +10,7 @@ import ThumbTimeline from './components/ThumbTimeline'
 import TimeCodeRow from './components/TimeCodeRow'
 import TopBar from './components/TopBar'
 import UpdateModal from './components/UpdateModal'
-import { AlertIcon } from './components/icons'
+import { CircleAlert } from 'lucide-react'
 import type {
   ExportFailure,
   ExportResult,
@@ -428,7 +429,7 @@ export default function App() {
   }, [])
 
   return (
-    <div className="relative flex h-screen flex-col overflow-hidden bg-app-bg text-app-text">
+    <div className="relative flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <TopBar
         media={media}
         mode={mode}
@@ -445,22 +446,24 @@ export default function App() {
       />
 
       {toastMessage && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 rounded-lg bg-slate-800/90 px-4 py-2 text-xs text-white shadow-xl backdrop-blur-sm transition-all">
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 rounded-lg bg-media/90 px-4 py-2 text-xs text-on-primary shadow-xl backdrop-blur-sm transition-all">
           {toastMessage}
         </div>
       )}
 
       {openError && (
-        <div className="flex items-center gap-2 border-b border-app-danger/30 bg-app-danger-soft px-4 py-2 text-xs text-app-danger-text">
-          <AlertIcon className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-2 border-b border-danger/30 bg-danger-soft px-4 py-2 text-xs text-foreground">
+          <CircleAlert className="h-3.5 w-3.5" />
           {openError}
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             type="button"
             onClick={() => setOpenError('')}
-            className="ml-auto text-app-danger hover:opacity-80"
+            className="ml-auto text-danger hover:opacity-80"
           >
             关闭
-          </button>
+          </Button>
         </div>
       )}
 

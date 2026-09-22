@@ -1,7 +1,10 @@
+import { Button } from '@/components/ui/button'
 import { useState } from 'react'
 import { formatEta, formatSize, formatTimecode } from '../lib/timecode'
 import type { ExportFailure, ExportResult, ExportStatus, TrimMode } from '../types'
-import { AlertIcon, CheckIcon } from './icons'
+import { CircleAlert, Check } from 'lucide-react'
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { Progress } from '@/components/ui/progress'
 
 interface Props {
   status: ExportStatus
@@ -36,8 +39,14 @@ export default function ExportOverlay({
   if (status === 'idle') return null
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-6">
-      <div className="w-[420px] rounded-lg border border-app-border bg-app-surface p-5 shadow-lg">
+    <Dialog open onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+      <DialogContent
+        className="max-w-[420px]"
+        onPointerDownOutside={(event) => event.preventDefault()}
+        onEscapeKeyDown={(event) => event.preventDefault()}
+      >
+        <DialogTitle className="sr-only">导出视频</DialogTitle>
+        <DialogDescription className="sr-only">查看导出进度、结果或错误，使用下方按钮继续。</DialogDescription>
         {status === 'running' && (
           <Running mode={mode} percent={percent} eta={eta} onCancel={onCancel} />
         )}
@@ -54,8 +63,8 @@ export default function ExportOverlay({
             onRetryExact={onRetryExact}
           />
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -72,38 +81,32 @@ function Running({
 }) {
   return (
     <div>
-      <h3 className="text-sm font-medium text-app-text">
+      <h3 className="text-sm font-medium text-foreground">
         {mode === 'fast' ? '正在极速导出…' : '正在精准导出…'}
       </h3>
 
       {mode === 'fast' ? (
-        <p className="mt-2 flex items-center gap-2 text-xs text-app-muted">
-          <span className="h-3 w-3 animate-spin rounded-full border-2 border-brand-600 border-t-transparent" />
+        <p className="mt-2 flex items-center gap-2 text-xs text-muted">
+          <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           复制中，通常很快完成
         </p>
       ) : (
         <>
-          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-            <div
-              className="h-full rounded-full bg-brand-600 dark:bg-brand-400 transition-[width] duration-200"
-              style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
-            />
-          </div>
-          <p className="mt-2 text-xs text-app-muted">
+          <Progress className="mt-3" value={Math.min(100, Math.max(0, percent))} />
+          <p className="mt-2 text-xs text-muted">
             {Math.floor(percent)}%{eta > 0 ? ` · 剩余 ${formatEta(eta)}` : ''}
           </p>
         </>
       )}
 
       <div className="mt-5 flex justify-end">
-        <button
+        <Button variant="secondary"
           type="button"
           onClick={onCancel}
-          className="rounded-md border border-app-border px-3 py-1.5 text-xs text-app-text
-                     hover:bg-app-subtle transition-colors"
+
         >
           取消导出
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -124,10 +127,10 @@ function Success({
   return (
     <div>
       <div className="flex items-center gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-50 text-brand-700 dark:text-brand-400">
-          <CheckIcon className="h-4 w-4" />
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-success-soft text-success ">
+          <Check className="h-4 w-4" />
         </span>
-        <h3 className="text-sm font-medium text-app-text">导出完成</h3>
+        <h3 className="text-sm font-medium text-foreground">导出完成</h3>
       </div>
 
       <dl className="mt-4 space-y-2 text-xs">
@@ -142,7 +145,7 @@ function Success({
       </dl>
 
       {drifted && (
-        <p className="mt-3 rounded-md bg-app-warn-soft px-2.5 py-2 text-xs text-app-warn-text">
+        <p className="mt-3 rounded-md bg-warning-soft px-2.5 py-2 text-xs text-foreground">
           {result.mode === 'fast'
             ? '极速模式会按附近关键帧裁剪，输出时长可能与请求范围略有差异'
             : '实际时长与所选范围略有差异'}
@@ -150,26 +153,23 @@ function Success({
       )}
 
       {result.warnings && result.warnings.length > 0 && (
-        <p className="mt-2 text-xs text-app-warn-text">{result.warnings.join('；')}</p>
+        <p className="mt-2 text-xs text-foreground">{result.warnings.join('；')}</p>
       )}
 
       <div className="mt-5 flex justify-end gap-2">
-        <button
+        <Button variant="secondary"
           type="button"
           onClick={() => onReveal(result.outputPath)}
-          className="rounded-md border border-app-border px-3 py-1.5 text-xs text-app-text
-                     hover:bg-app-subtle transition-colors"
         >
           在文件夹中显示
-        </button>
-        <button
+        </Button>
+        <Button variant="default"
           type="button"
           onClick={onClose}
-          className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white
-                     hover:bg-brand-700 dark:hover:bg-brand-500 transition-colors"
+
         >
           完成
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -193,26 +193,26 @@ function Failed({
   return (
     <div>
       <div className="flex items-center gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-app-danger-soft text-app-danger">
-          <AlertIcon className="h-4 w-4" />
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-danger-soft text-danger">
+          <CircleAlert className="h-4 w-4" />
         </span>
-        <h3 className="text-sm font-medium text-app-text">裁剪失败</h3>
+        <h3 className="text-sm font-medium text-foreground">裁剪失败</h3>
       </div>
 
-      <p className="mt-3 text-xs leading-5 text-app-text">{failure.message}</p>
+      <p className="mt-3 text-xs leading-5 text-foreground">{failure.message}</p>
 
       {failure.detail && (
         <div className="mt-3">
-          <button
+          <Button variant="ghost"
             type="button"
             onClick={onToggleDetail}
-            className="text-xs text-app-muted hover:text-app-text"
+
           >
             {showDetail ? '隐藏技术详情' : '查看技术详情'}
-          </button>
+          </Button>
           {showDetail && (
-            <pre className="mt-2 max-h-32 overflow-auto rounded-md bg-app-subtle p-2 text-[10px]
-                            leading-4 text-app-muted whitespace-pre-wrap">
+            <pre className="mt-2 max-h-32 overflow-auto rounded-md bg-surface-2 p-2 text-[10px]
+                            leading-4 text-muted whitespace-pre-wrap">
               {failure.detail}
             </pre>
           )}
@@ -220,23 +220,21 @@ function Failed({
       )}
 
       <div className="mt-5 flex justify-end gap-2">
-        <button
+        <Button variant="secondary"
           type="button"
           onClick={onClose}
-          className="rounded-md border border-app-border px-3 py-1.5 text-xs text-app-text
-                     hover:bg-app-subtle transition-colors"
+
         >
           关闭
-        </button>
+        </Button>
         {mode === 'fast' && (
-          <button
+          <Button variant="default"
             type="button"
             onClick={onRetryExact}
-            className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white
-                       hover:bg-brand-700 dark:hover:bg-brand-500 transition-colors"
+
           >
             改用精准模式重试
-          </button>
+          </Button>
         )}
       </div>
     </div>
@@ -246,8 +244,8 @@ function Failed({
 function Row({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <dt className="shrink-0 text-app-muted">{label}</dt>
-      <dd className={`truncate text-app-text ${mono ? 'font-mono' : ''}`} title={value}>
+      <dt className="shrink-0 text-muted">{label}</dt>
+      <dd className={`truncate text-foreground ${mono ? 'font-mono' : ''}`} title={value}>
         {value}
       </dd>
     </div>

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { describeParseError, formatTimecode, parseTimecode } from '../lib/timecode'
 import type { TrimMode } from '../types'
-import { AlertIcon } from './icons'
+import { CircleAlert } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 interface Props {
   mediaSeq: number
@@ -104,7 +106,7 @@ export default function TimeCodeRow({
         />
       </div>
 
-      <p className="max-w-[420px] pt-1 text-right text-xs leading-5 text-app-muted">
+      <p className="max-w-[420px] pt-1 text-right text-xs leading-5 text-muted">
         {mode === 'fast'
           ? '极速模式：完全无损，切点可能对齐附近关键帧，完成后显示请求范围和输出时长'
           : '精准模式：严格按所选时间裁剪，高质量重编码，耗时较长'}
@@ -133,9 +135,9 @@ function TimeField({
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void
 }) {
   return (
-    <label className="flex flex-col gap-1">
-      <span className="text-xs text-app-muted">{label}</span>
-      <input
+    <Label className="flex flex-col items-start gap-1 text-xs text-muted">
+      <span className="text-xs text-muted">{label}</span>
+      <Input
         type="text"
         inputMode="numeric"
         value={value}
@@ -144,19 +146,15 @@ function TimeField({
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
         onKeyDown={onKeyDown}
-        className={`w-[104px] rounded-md border bg-app-surface px-2.5 py-1.5 font-mono text-sm
-                    text-app-text outline-none transition-colors
-                    disabled:bg-app-subtle disabled:text-app-muted
-                    ${error
-                      ? 'border-app-danger focus:border-app-danger'
-                      : 'border-app-border focus:border-brand-600 dark:focus:border-brand-400'}`}
+        aria-invalid={Boolean(error)}
+        className="h-8 w-[104px] font-mono text-sm"
       />
       {error && (
-        <span className="flex items-center gap-1 text-xs text-app-danger">
-          <AlertIcon className="h-3 w-3" />
+        <span className="flex items-center gap-1 text-xs text-danger">
+          <CircleAlert className="h-3 w-3" />
           {error}
         </span>
       )}
-    </label>
+    </Label>
   )
 }
