@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button'
+import { Button } from 'xwang-ui'
 import { formatDuration } from '../lib/timecode'
 import { Upload } from 'lucide-react'
 

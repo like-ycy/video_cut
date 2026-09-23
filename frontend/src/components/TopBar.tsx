@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button'
+import { Button } from 'xwang-ui'
 import type { MediaInfo, TrimMode } from '../types'
 import type { ThemePreference } from '../lib/theme'
 import { Zap, FolderOpen, Moon, Sun, Monitor, Target } from 'lucide-react'

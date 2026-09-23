@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button'
+import { Button } from 'xwang-ui'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTheme } from './hooks/useTheme'
 import BottomBar from './components/BottomBar'

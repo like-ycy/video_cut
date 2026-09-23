@@ -1,10 +1,10 @@
-import { Button } from '@/components/ui/button'
+import { Button } from 'xwang-ui'
 import { useState } from 'react'
 import { formatEta, formatSize, formatTimecode } from '../lib/timecode'
 import type { ExportFailure, ExportResult, ExportStatus, TrimMode } from '../types'
 import { CircleAlert, Check } from 'lucide-react'
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { Progress } from '@/components/ui/progress'
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from 'xwang-ui'
+import { Progress } from 'xwang-ui'
 
 interface Props {
   status: ExportStatus

@@ -1,11 +1,11 @@
-import { Button } from '@/components/ui/button'
+import { Button } from 'xwang-ui'
 import { useState } from 'react'
 import { formatSize } from '../lib/timecode'
 import type { UpdateInfo, UpdateProgress, UpdateState } from '../types'
 import { CircleAlert, Check, Download, ExternalLink, RefreshCw } from 'lucide-react'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { Progress } from '@/components/ui/progress'
+import { Checkbox } from 'xwang-ui'
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from 'xwang-ui'
+import { Progress } from 'xwang-ui'
 
 interface Props {
   info: UpdateInfo | null

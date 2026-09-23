@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button'
+import { Button } from 'xwang-ui'
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { formatTimecode } from '../lib/timecode'
 import { Pause, Play } from 'lucide-react'

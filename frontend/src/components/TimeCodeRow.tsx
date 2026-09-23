@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { describeParseError, formatTimecode, parseTimecode } from '../lib/timecode'
 import type { TrimMode } from '../types'
 import { CircleAlert } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Input } from 'xwang-ui'
+import { Label } from 'xwang-ui'
 
 interface Props {
   mediaSeq: number

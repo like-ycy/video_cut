@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button'
+import { Button } from 'xwang-ui'
 import { useState } from 'react'
 import { Film, FolderOpen } from 'lucide-react'
 
