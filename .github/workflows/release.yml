@@ -32,6 +32,21 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Cache Wails CLI
+        uses: actions/cache@v6
+        with:
+          path: .wails-bin
+          key: wails-cli-v2.16.0-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Install Wails CLI
+        shell: bash
+        run: |
+          mkdir -p .wails-bin
+          if [ ! -f .wails-bin/wails ] && [ ! -f .wails-bin/wails.exe ]; then
+            GOBIN="$PWD/.wails-bin" go install github.com/wailsapp/wails/v2/cmd/wails@v2.16.0
+          fi
+          echo "$PWD/.wails-bin" >> "$GITHUB_PATH"
+
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -39,7 +54,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
-        run: npm ci --prefix frontend
+        run: npm ci --prefix frontend --prefer-offline --no-audit --no-fund
 
       - name: Set application version
         run: |
@@ -47,7 +62,7 @@ jobs:
 
       - name: Build macOS app
         run: |
-          go run github.com/wailsapp/wails/v2/cmd/wails@v2.16.0 build \
+          wails build \
             -clean \
             -platform "darwin/${{ matrix.goarch }}" \
             -ldflags "-X videocut/internal/version.Version=${GITHUB_REF_NAME}"
@@ -85,6 +100,21 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Cache Wails CLI
+        uses: actions/cache@v6
+        with:
+          path: .wails-bin
+          key: wails-cli-v2.16.0-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Install Wails CLI
+        shell: bash
+        run: |
+          mkdir -p .wails-bin
+          if [ ! -f .wails-bin/wails ] && [ ! -f .wails-bin/wails.exe ]; then
+            GOBIN="$PWD/.wails-bin" go install github.com/wailsapp/wails/v2/cmd/wails@v2.16.0
+          fi
+          echo "$PWD/.wails-bin" >> "$GITHUB_PATH"
+
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -92,7 +122,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
-        run: npm ci --prefix frontend
+        run: npm ci --prefix frontend --prefer-offline --no-audit --no-fund
 
       - name: Set application version
         run: node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("wails.json","utf8"));p.info={...(p.info||{}),productVersion:process.env.GITHUB_REF_NAME.slice(1)};fs.writeFileSync("wails.json",JSON.stringify(p,null,2)+"\n");'
@@ -101,7 +131,7 @@ jobs:
         shell: bash
         # Wails 2.16 的 -o 不会自动补 .exe，因此这里不使用 -o，保持默认输出 build/bin/videocut.exe
         run: |
-          go run github.com/wailsapp/wails/v2/cmd/wails@v2.16.0 build \
+          wails build \
             -clean \
             -platform windows/amd64 \
             -ldflags "-X videocut/internal/version.Version=${GITHUB_REF_NAME}"
