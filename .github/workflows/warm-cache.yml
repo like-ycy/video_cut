@@ -29,10 +29,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # 不做 Go build cache：Windows 解压大缓存反而拖慢发版
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
 
       - uses: actions/setup-node@v7
         with:

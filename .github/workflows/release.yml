@@ -27,10 +27,11 @@ jobs:
             exit 1
           }
 
+      # 不缓存 Go build cache：Windows 上解压 ~233MB 比冷编译还慢
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
 
       - name: Cache Wails CLI
         uses: actions/cache@v6
@@ -54,7 +55,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
-        run: npm ci --prefix frontend --prefer-offline --no-audit --no-fund
+        run: npm ci --prefix frontend
 
       - name: Set application version
         run: |
@@ -95,10 +96,11 @@ jobs:
             exit 1
           }
 
+      # 不缓存 Go build cache：Windows 上解压 ~233MB 比冷编译还慢
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
 
       - name: Cache Wails CLI
         uses: actions/cache@v6
@@ -122,7 +124,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
-        run: npm ci --prefix frontend --prefer-offline --no-audit --no-fund
+        run: npm ci --prefix frontend
 
       - name: Set application version
         run: node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("wails.json","utf8"));p.info={...(p.info||{}),productVersion:process.env.GITHUB_REF_NAME.slice(1)};fs.writeFileSync("wails.json",JSON.stringify(p,null,2)+"\n");'
