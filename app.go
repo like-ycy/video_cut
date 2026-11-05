@@ -425,8 +425,9 @@ func (a *App) GetMediaInfo() *video.MediaInfo {
 	return a.info
 }
 
-// ExportVideo 执行导出：先弹出保存对话框，再后台裁剪。
-// 返回 "started" 表示任务已启动；返回空串表示用户在保存对话框中取消。
+// ExportVideo 执行导出：先弹出目录选择对话框，再后台裁剪。
+// 选择与源视频相同的目录时输出名加 _trimmed 后缀；选择其他目录时保留原文件名。
+// 返回 "started" 表示任务已启动；返回空串表示用户在目录选择对话框中取消。
 // 导出结果通过事件通知前端。
 func (a *App) ExportVideo(mode string, start, end float64) (string, error) {
 	if a.ctx == nil {
@@ -461,31 +462,34 @@ func (a *App) ExportVideo(mode string, start, end float64) (string, error) {
 		return "", fmt.Errorf("保留时长至少需要 1 秒")
 	}
 
-	// 保存对话框：默认同目录 + 原文件名_trimmed
-	defaultName := fsutil.DefaultOutputName(src)
-	chosen, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
-		Title:                "导出视频",
+	// 目录选择对话框：允许导出到其他磁盘（如从移动硬盘导到本机固态），
+	// 避免 FFmpeg 边读移动硬盘边写移动硬盘造成速度骤降。
+	dir, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title:                "选择导出目录",
 		DefaultDirectory:     filepath.Dir(src),
-		DefaultFilename:      defaultName,
 		CanCreateDirectories: true,
-		Filters: []runtime.FileFilter{
-			{DisplayName: "视频文件", Pattern: "*" + strings.ToLower(filepath.Ext(src))},
-		},
 	})
 	if err != nil {
 		return "", err
 	}
-	if chosen == "" {
+	if dir == "" {
 		return "", nil // 用户取消
 	}
 
+	// 与源文件同目录时加 _trimmed 后缀区分新旧文件；
+	// 跨目录导出保留原文件名，方便拷回源目录后直接同名替换。
+	name := filepath.Base(src)
+	if fsutil.SameFile(dir, filepath.Dir(src)) {
+		name = fsutil.DefaultOutputName(src)
+	}
+
 	// 确认保存前再次检查，永不覆盖已有文件或源文件
-	final := chosen
+	final := filepath.Join(dir, name)
 	if _, err := os.Stat(final); err == nil {
-		final = fsutil.UniqueTarget(filepath.Dir(chosen), filepath.Base(chosen), []string{src})
+		final = fsutil.UniqueTarget(dir, name, []string{src})
 	}
 	if fsutil.SameFile(final, src) {
-		final = fsutil.UniqueTarget(filepath.Dir(chosen), filepath.Base(chosen), []string{src})
+		final = fsutil.UniqueTarget(dir, name, []string{src})
 	}
 
 	a.jobsMu.Lock()
