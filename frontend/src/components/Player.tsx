@@ -11,6 +11,9 @@ interface Props {
   onTimeChange: (time: number) => void
 }
 
+/** 方向键快进/快退步长（秒）。 */
+const SEEK_STEP_SECONDS = 3
+
 /** 视频预览区：16:9 播放器，仅保留播放/暂停与进度跳转。 */
 export default function Player({ src, duration, preparing, videoRef, onTimeChange }: Props) {
   const [playing, setPlaying] = useState(false)
@@ -51,6 +54,36 @@ export default function Player({ src, duration, preparing, videoRef, onTimeChang
     v.currentTime = ratio * duration
     setCurrent(v.currentTime)
   }
+
+  // 相对当前时间跳转（快进/快退），并同步播放位置
+  const seekBy = (delta: number) => {
+    const v = videoRef.current
+    if (!v || duration <= 0) return
+    const next = Math.min(duration, Math.max(0, v.currentTime + delta))
+    v.currentTime = next
+    setCurrent(next)
+    onTimeChange(next)
+  }
+
+  // 鼠标悬停在进度条上时，左右方向键快退/快进 3 秒
+  const [barHovered, setBarHovered] = useState(false)
+  useEffect(() => {
+    if (!barHovered) return
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      // 焦点在输入框内时不抢按键，避免干扰时间码输入
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        seekBy(-SEEK_STEP_SECONDS)
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        seekBy(SEEK_STEP_SECONDS)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [barHovered, duration])
 
   // 拖动进度条时预览跟随：用 pointer capture 保证拖出元素外也不丢事件
   const draggingRef = useRef(false)
@@ -129,8 +162,10 @@ export default function Player({ src, duration, preparing, videoRef, onTimeChang
           onPointerMove={onBarPointerMove}
           onPointerUp={onBarPointerUp}
           onPointerCancel={onBarPointerUp}
+          onMouseEnter={() => setBarHovered(true)}
+          onMouseLeave={() => setBarHovered(false)}
           className="group relative h-2.5 flex-1 cursor-pointer touch-none select-none rounded-full bg-surface-3 "
-          title="拖动或点击跳转到指定位置"
+          title="拖动或点击跳转到指定位置；悬停时按 ←/→ 快退/快进 3 秒"
         >
           <div
             className="absolute inset-y-0 left-0 rounded-full bg-primary "
