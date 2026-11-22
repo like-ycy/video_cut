@@ -1,5 +1,11 @@
 import { Button } from 'xwang-ui'
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import { formatTimecode } from '../lib/timecode'
 import { Pause, Play } from 'lucide-react'
 
@@ -20,6 +26,7 @@ export default function Player({ src, duration, preparing, videoRef, onTimeChang
   const [current, setCurrent] = useState(0)
   const [failed, setFailed] = useState(false)
   const barRef = useRef<HTMLDivElement | null>(null)
+  const playerRef = useRef<HTMLDivElement | null>(null)
 
   // 切换视频时重置播放状态
   useEffect(() => {
@@ -65,25 +72,16 @@ export default function Player({ src, duration, preparing, videoRef, onTimeChang
     onTimeChange(next)
   }
 
-  // 鼠标悬停在进度条上时，左右方向键快退/快进 3 秒
-  const [barHovered, setBarHovered] = useState(false)
-  useEffect(() => {
-    if (!barHovered) return
-    const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null
-      // 焦点在输入框内时不抢按键，避免干扰时间码输入
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault()
-        seekBy(-SEEK_STEP_SECONDS)
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault()
-        seekBy(SEEK_STEP_SECONDS)
-      }
+  // 点击视频播放区域获得焦点后，左右方向键快退/快进 3 秒
+  const onPlayerKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault()
+      seekBy(-SEEK_STEP_SECONDS)
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault()
+      seekBy(SEEK_STEP_SECONDS)
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [barHovered, duration])
+  }
 
   // 拖动进度条时预览跟随：用 pointer capture 保证拖出元素外也不丢事件
   const draggingRef = useRef(false)
@@ -107,7 +105,15 @@ export default function Player({ src, duration, preparing, videoRef, onTimeChang
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="relative w-full aspect-video bg-media rounded-lg overflow-hidden">
+      <div
+        ref={playerRef}
+        tabIndex={0}
+        onKeyDown={onPlayerKeyDown}
+        onClick={() => playerRef.current?.focus()}
+        className="relative w-full aspect-video bg-media rounded-lg overflow-hidden outline-none
+                   focus:ring-2 focus:ring-primary/40"
+        aria-label="视频播放区域，点击后可按左右方向键快退/快进"
+      >
         {preparing && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-media/85 text-sm text-on-media">
             <span className="flex items-center gap-2">
@@ -162,10 +168,8 @@ export default function Player({ src, duration, preparing, videoRef, onTimeChang
           onPointerMove={onBarPointerMove}
           onPointerUp={onBarPointerUp}
           onPointerCancel={onBarPointerUp}
-          onMouseEnter={() => setBarHovered(true)}
-          onMouseLeave={() => setBarHovered(false)}
           className="group relative h-2.5 flex-1 cursor-pointer touch-none select-none rounded-full bg-surface-3 "
-          title="拖动或点击跳转到指定位置；悬停时按 ←/→ 快退/快进 3 秒"
+          title="拖动或点击跳转到指定位置"
         >
           <div
             className="absolute inset-y-0 left-0 rounded-full bg-primary "
