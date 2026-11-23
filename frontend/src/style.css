@@ -1,21 +1,41 @@
 @import "tailwindcss";
 @import "xwang-ui/styles.css";
 
-/* Media stays dark in both themes so letterboxing never flashes white. */
+/*
+ * 颜色 / 圆角 / 阴影 / 滚动条 / 选区一律来自 xwang-ui 的 tokens.css + base.css。
+ * 这里只保留剪辑器特有的一条：媒体区在两种主题下都是深色，避免画面外围闪白。
+ */
 @theme {
   --color-media: #0b0d10;
   --color-on-media: #f2f3f5;
-  --color-overlay: rgb(29 33 41 / 40%);
 }
-.dark { --color-overlay: rgb(0 0 0 / 72%); }
-html.dark { color-scheme: dark; }
-html, body, #root { height: 100%; margin: 0; }
-body { overflow: hidden; }
-button, select { user-select: none; }
-input[type='text'] { user-select: text; }
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 4px; }
-::-webkit-scrollbar-track { background: var(--color-background); }
 
-@font-face { font-family: Inter; src: url('./assets/fonts/inter-var.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
-@font-face { font-family: 'JetBrains Mono'; src: url('./assets/fonts/jetbrains-mono-var.woff2') format('woff2'); font-weight: 100 800; font-display: swap; }
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+body {
+  overflow: hidden;
+}
+button,
+select {
+  user-select: none;
+}
+input[type='text'] {
+  user-select: text;
+}
+
+@font-face {
+  font-family: Inter;
+  src: url('./assets/fonts/inter-var.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('./assets/fonts/jetbrains-mono-var.woff2') format('woff2');
+  font-weight: 100 800;
+  font-display: swap;
+}
