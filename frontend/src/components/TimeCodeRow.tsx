@@ -174,7 +174,7 @@ export default function TimeCodeRow({
         />
       </div>
 
-      <p className="max-w-[420px] pt-1 text-right text-xs leading-5 text-muted">
+      <p className="max-w-[460px] pt-1 text-left text-pretty text-xs leading-5 text-muted">
         {mode === 'fast'
           ? '极速模式：完全无损，切点可能对齐附近关键帧，完成后显示请求范围和输出时长'
           : '精准模式：严格按所选时间裁剪，高质量重编码，耗时较长'}
