@@ -1,5 +1,12 @@
 name: Release
 
+# 构建与打包全部收在 tools/build.sh（macOS）与 tools\build.ps1（Windows）里，
+# 这里只负责「换平台 → 调脚本 → 断言产物 → 传 artifact」。
+#
+# 产物命名（与 go/internal/updater 的资产匹配一致）：
+#   videocut_<ver>_<goos>_<goarch>.zip
+# 平台段取 GOOS，不要写成 "macos"。
+
 on:
   push:
     tags:
@@ -9,68 +16,27 @@ permissions:
   contents: write
 
 jobs:
-  macos:
+  build:
+    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - goarch: arm64
-          - goarch: amd64
-    runs-on: macos-15
+          - goos: darwin
+            goarch: arm64
+            runner: macos-15
+          - goos: darwin
+            goarch: amd64
+            runner: macos-15
+          - goos: windows
+            goarch: amd64
+            runner: windows-2022
+
     steps:
       - uses: actions/checkout@v7
-
-      - name: Validate release tag
-        run: |
-          [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
-            echo "Release tag must match vMAJOR.MINOR.PATCH"
-            exit 1
-          }
-
-      - uses: actions/setup-go@v7
         with:
-          go-version-file: go.mod
-          cache: true
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install frontend dependencies
-        run: npm ci --prefix frontend
-
-      - name: Set application version
-        run: |
-          node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("wails.json","utf8"));p.info={...(p.info||{}),productVersion:process.env.GITHUB_REF_NAME.slice(1)};fs.writeFileSync("wails.json",JSON.stringify(p,null,2)+"\n");'
-
-      - name: Build macOS app
-        run: |
-          go run github.com/wailsapp/wails/v2/cmd/wails@v2.16.0 build \
-            -clean \
-            -platform "darwin/${{ matrix.goarch }}" \
-            -ldflags "-X videocut/internal/version.Version=${GITHUB_REF_NAME}"
-
-      - name: Package macOS app
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          PKG="$PWD/videocut_${VERSION}_darwin_${{ matrix.goarch }}.zip"
-          test -d build/bin/videocut.app
-          # -y 保留 .app 内符号链接，避免系统解压后损坏应用包
-          (cd build/bin && zip -qyr "$PKG" videocut.app)
-          test -f "$PKG"
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: macos-${{ matrix.goarch }}
-          path: videocut_*.zip
-          if-no-files-found: error
-
-  windows:
-    runs-on: windows-2022
-    steps:
-      - uses: actions/checkout@v7
+          fetch-depth: 0
 
       - name: Validate release tag
         shell: bash
@@ -82,65 +48,58 @@ jobs:
 
       - uses: actions/setup-go@v7
         with:
-          go-version-file: go.mod
+          go-version-file: go/go.mod
           cache: true
 
       - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: go/frontend/package-lock.json
 
-      - name: Install frontend dependencies
-        run: npm ci --prefix frontend
-
-      - name: Set application version
-        run: node -e 'const fs=require("fs");const p=JSON.parse(fs.readFileSync("wails.json","utf8"));p.info={...(p.info||{}),productVersion:process.env.GITHUB_REF_NAME.slice(1)};fs.writeFileSync("wails.json",JSON.stringify(p,null,2)+"\n");'
-
-      - name: Build Windows executable
+      - name: Install Wails CLI
         shell: bash
-        # Wails 2.16 的 -o 不会自动补 .exe，因此这里不使用 -o，保持默认输出 build/bin/videocut.exe
         run: |
-          go run github.com/wailsapp/wails/v2/cmd/wails@v2.16.0 build \
-            -clean \
-            -platform windows/amd64 \
-            -ldflags "-X videocut/internal/version.Version=${GITHUB_REF_NAME}"
+          go install github.com/wailsapp/wails/v2/cmd/wails@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
-      - name: Package Windows executable
-        # 在 exe 所在目录打包，保证 zip 根目录就是 videocut.exe，
-        # 避免 Compress-Archive 写入 build/bin/... 导致更新器两层内找不到文件。
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        run: tools/build.sh
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
         shell: pwsh
+        run: .\tools\build.ps1
+
+      # 结构断言：更新器解压后按「zip 根唯一的 .app / .exe」找目标，
+      # 多套一层目录会让它找不到文件，而构建日志一片绿。
+      - name: Assert layout
+        shell: bash
         run: |
-          $VERSION = $env:GITHUB_REF_NAME.Substring(1)
-          $PKG = Join-Path $PWD "videocut_${VERSION}_windows_amd64.zip"
-          if (-not (Test-Path "build/bin/videocut.exe")) { throw "missing videocut.exe" }
-          Push-Location "build/bin"
-          try {
-            Compress-Archive -Path "videocut.exe" -DestinationPath $PKG -Force
-          } finally {
-            Pop-Location
-          }
-          if (-not (Test-Path $PKG)) { throw "failed to create $PKG" }
-          # 校验 zip 根目录条目
-          Add-Type -AssemblyName System.IO.Compression.FileSystem
-          $zip = [System.IO.Compression.ZipFile]::OpenRead($PKG)
-          try {
-            $names = @($zip.Entries | ForEach-Object { $_.FullName -replace '\\','/' })
-            if ($names -notcontains "videocut.exe") {
-              throw "zip root missing videocut.exe; entries: $($names -join ', ')"
-            }
-          } finally {
-            $zip.Dispose()
-          }
+          set -euo pipefail
+          version="$(git describe --tags --exact-match | sed 's/^v//')"
+          asset="dist/release/videocut_${version}_${{ matrix.goos }}_${{ matrix.goarch }}.zip"
+          test -f "$asset" || { echo "缺少归档：$asset"; ls -R dist/release; exit 1; }
+
+          names="$(unzip -Z1 "$asset" 2>/dev/null || python3 -c 'import zipfile,sys;print("\n".join(zipfile.ZipFile(sys.argv[1]).namelist()))' "$asset")"
+          if [ "${{ matrix.goos }}" = "darwin" ]; then
+            echo "$names" | grep -q "^videocut\.app/Contents/MacOS/videocut$" ||
+              { echo "归档里没有 .app 内的可执行文件"; echo "$names" | head -20; exit 1; }
+          else
+            echo "$names" | grep -qx "videocut.exe" || { echo "归档根缺少 videocut.exe"; exit 1; }
+          fi
+          stray="$(echo "$names" | grep -v "^videocut" || true)"
+          if [ -n "$stray" ]; then echo "归档顶层出现多余条目：$stray"; exit 1; fi
 
       - uses: actions/upload-artifact@v7
         with:
-          name: windows-amd64
-          path: videocut_*.zip
+          name: videocut-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/release/*.zip
           if-no-files-found: error
 
   release:
-    needs: [macos, windows]
+    needs: [build]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v8
@@ -152,7 +111,7 @@ jobs:
         run: |
           shopt -s nullglob
           packages=(release-assets/*.zip)
-          test "${#packages[@]}" -eq 3
+          test "${#packages[@]}" -eq 3 || { echo "应有 3 个包，实际 ${#packages[@]}"; ls release-assets; exit 1; }
           (
             cd release-assets
             sha256sum *.zip > SHA256SUMS.txt

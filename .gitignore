@@ -1,55 +1,77 @@
-# ---------- 系统文件 ----------
-.DS_Store
-Thumbs.db
-desktop.ini
+# 仓库结构与打包契约见 docs/packaging-contract.md
+#
+# 原则：只提交「源码 + 配置 + 锁文件 + Wails 脚手架」。
+# 带前导 / 的规则都是仓库根锚定的，这是刻意的：裸写 build/ 会连 go/build/ 一起忽略，
+# 而 go/build/ 里的 appicon.png、darwin/、windows/ 是 wails build 必需的源文件。
+# 四个仓库共用同一份规则，仅有末尾「项目特有」一节不同。
 
-# ---------- Go ----------
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
+# ── Go / Wails ──
+/go/build/bin/
+/go/frontend/dist/
+/go/frontend/node_modules/
+/go/frontend/package.json.md5
+/go/frontend/.vite/
+/go/.gocache-test/
+vendor/
 *.test
 *.out
 coverage.txt
 coverage.html
-vendor/
 
-# ---------- Wails 构建产物 ----------
-build/bin/
-frontend/package.json.md5
+# ── Python（模板 B）──
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+.venv/
+/python/.venv/
+/python/build/
 
-# ---------- Node / 前端 ----------
+# ── 测试与工具缓存 ──
+.pytest_cache/
+.ruff_cache/
+
+# ── 组件与分发产物（tools/*.sh 的输出）──
+/dist/
+
+# ── 运行时数据 ──
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.log
+*.tmp
+*.temp
+
+# ── OS / 编辑器 / 本地工具 ──
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.omo/
+.serena/
+.workbuddy/
+.codebuddy/
+
+# ── Node 生态噪音 ──
 node_modules/
-frontend/dist/
-frontend/.vite/
-dist/
 *.local
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# ---------- 编辑器 / IDE ----------
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# ---------- AI 工具目录 ----------
-.omo/
-.serena/
-.workbuddy/
-.codebuddy/
-
-# ---------- 日志 / 临时文件 ----------
-*.log
-*.tmp
-*.temp
-
-# ---------- 项目特定 ----------
-samples/
-demo/
-tests/
+# ── 项目特有 ──
+# wailsjs/ 刻意**入库**（其余三个仓库忽略它）：本仓库前端要能脱离 wails 单独
+# `npm ci && npm run build`，而 bindings 只在 wails 构建时才生成。
+!/go/frontend/wailsjs/
+# 本地测试与样本一律不入库：本仓库约定「测试代码随源码走，但不进版本库」。
+/go/tests/
 **/*_test.go
+demo/

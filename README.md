@@ -77,30 +77,35 @@ go install github.com/wailsapp/wails/v2/cmd/wails@latest
 ## 快速开始
 
 ```bash
-# 1. 安装前端依赖
-cd frontend && npm install && cd ..
+# 1. 开发模式（前端热重载；首次会自动执行 npm ci）
+cd go && wails dev
 
-# 2. 开发模式（前端热重载）
-wails dev
+# 2. 发布构建：wails build → 组装 dist → 归档，一条命令
+tools/build.sh
 
-# 3. 生产构建，产物在 build/bin/
-wails build
+# 只重新组装与归档（复用 go/build/bin 里已有产物）
+tools/build.sh --package-only
+
+# 指定版本号（默认取 git tag，无 tag 时 0.0.0-dev）
+tools/build.sh -v 1.2.0
 ```
 
-> `npm install` 需要能访问 `github.com`：前端依赖里的 `xwang-ui` 是以 git 方式引用的公共组件库。
+产物：
 
-常用构建参数：
+| 路径 | 内容 |
+|---|---|
+| `go/build/bin/videocut.app` / `videocut.exe` | wails 原生产物 |
+| `dist/videocut/` | 分发目录（运行时路径契约） |
+| `dist/release/videocut_{ver}_{goos}_{arch}.zip` | 发布归档，解压即用 |
+
+> `npm ci` 需要能访问 `github.com`：前端依赖里的 `xwang-ui` 是以 git 方式引用的公共组件库。
+
+直接调 `wails` 也可以，但要自己补 `-clean` 与版本号注入：
 
 ```bash
-wails build -platform darwin/universal   # macOS 通用二进制（Intel + Apple Silicon）
-wails build -nsis                        # Windows 额外生成 NSIS 安装包
-wails build -clean                       # 清理构建缓存后重新构建
-```
-
-本地开发时可用 ldflags 注入版本号，便于与更新逻辑联调：
-
-```bash
-wails build -ldflags "-X videocut/internal/version.Version=0.1.12"
+cd go
+wails build -clean -platform darwin/universal \
+  -ldflags "-X videocut/internal/version.Version=0.1.12"
 ```
 
 ---
@@ -109,30 +114,34 @@ wails build -ldflags "-X videocut/internal/version.Version=0.1.12"
 
 ```
 video_cut/
-├── main.go                  # 入口：窗口配置、静态资源、媒体服务挂载、关闭前确认
-├── app.go                   # 暴露给前端的绑定方法，以及全部事件名定义
-├── wails.json               # Wails 项目配置
-├── frontend/
-│   ├── src/
-│   │   ├── App.tsx          # 主界面状态编排、后端事件订阅
-│   │   ├── components/      # 业务组件：播放器、缩略图时间轴、时间码行、顶栏/底栏、导出/更新浮层
-│   │   │                    # （按钮、输入框、弹窗、进度等通用组件来自 xwang-ui）
-│   │   ├── hooks/           # useTheme 等前端 hooks
-│   │   ├── lib/             # 时间码解析格式化、主题偏好
-│   │   └── types.ts         # 与 Go 结构体对应的前端类型
-│   └── wailsjs/             # Wails 自动生成的 Go 方法绑定（勿手动编辑）
-├── internal/
-│   ├── appearance/          # 读取系统外观（macOS 原生 AppleInterfaceStyle）
-│   ├── export/              # 两种模式的裁剪导出
-│   ├── ffmpeg/              # ffmpeg / ffprobe 可用性检查与进程执行
-│   ├── fsutil/              # 临时文件、原子落盘、跨平台「在文件夹中显示」
-│   ├── preview/             # 本地媒体 HTTP 服务 + 预览代理生成
-│   ├── thumbnail/           # 缩略图批量生成与取消
-│   ├── updater/             # GitHub Releases 检查、下载、校验、替换重启
-│   ├── version/             # 版本号与语义化比较（CI 经 ldflags 注入）
-│   └── video/               # ffprobe 探测，解析媒体信息并判断能否直接播放
-├── tests/                   # Go 侧回归 / 冒烟测试
-├── samples/                 # 本地联调用的示例视频
+├── go/                      # Go 模块根 = Wails 项目根
+│   ├── main.go              # 入口：窗口配置、静态资源、媒体服务挂载、关闭前确认
+│   ├── app.go               # 暴露给前端的绑定方法，以及全部事件名定义
+│   ├── wails.json           # Wails 项目配置
+│   ├── frontend/
+│   │   ├── src/
+│   │   │   ├── App.tsx      # 主界面状态编排、后端事件订阅
+│   │   │   ├── components/  # 业务组件：播放器、缩略图时间轴、时间码行、顶栏/底栏、导出/更新浮层
+│   │   │   │                # （按钮、输入框、弹窗、进度等通用组件来自 xwang-ui）
+│   │   │   ├── hooks/       # useTheme 等前端 hooks
+│   │   │   ├── lib/         # 时间码解析格式化、主题偏好
+│   │   │   └── types.ts     # 与 Go 结构体对应的前端类型
+│   │   └── wailsjs/         # Wails 自动生成的 Go 方法绑定（勿手动编辑）
+│   ├── internal/
+│   │   ├── appearance/      # 读取系统外观（macOS 原生 AppleInterfaceStyle）
+│   │   ├── export/          # 两种模式的裁剪导出
+│   │   ├── ffmpeg/          # ffmpeg / ffprobe 可用性检查与进程执行
+│   │   ├── fsutil/          # 临时文件、原子落盘、跨平台「在文件夹中显示」
+│   │   ├── preview/         # 本地媒体 HTTP 服务 + 预览代理生成
+│   │   ├── thumbnail/       # 缩略图批量生成与取消
+│   │   ├── updater/         # GitHub Releases 检查、下载、校验、替换重启
+│   │   ├── version/         # 版本号与语义化比较（CI 经 ldflags 注入）
+│   │   └── video/           # ffprobe 探测，解析媒体信息并判断能否直接播放
+│   ├── build/               # Wails 资源（appicon、darwin/、windows/）
+│   └── tests/               # Go 回归/冒烟测试；testdata/ 放本地联调样本（不入库）
+├── tools/                   # 构建与打包脚本：build.sh、package.sh 及对应 .ps1
+├── docs/                    # 打包契约等设计文档
+├── dist/                    # 组装目录与归档（不提交）
 └── .github/workflows/       # 打 tag 自动发布到 GitHub Releases
 ```
 
